@@ -1,0 +1,66 @@
+'use client';
+import { useRouter, usePathname } from 'next/navigation';
+import { LayoutDashboard, FileText, Settings, LogOut } from 'lucide-react';
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    router.push('/auth');
+  };
+
+  const navItems = [
+    { label: 'Wizard', icon: LayoutDashboard, href: '/dashboard' },
+    { label: 'Requirements', icon: FileText, href: '/dashboard/requirements' },
+    { label: 'Admin', icon: Settings, href: '/dashboard/admin' },
+  ];
+
+  return (
+    <div className="flex min-h-screen">
+      {/* Sidebar */}
+      <div className="w-64 flex flex-col justify-between py-8 px-4" style={{ background: '#1E2A4A' }}>
+        <div>
+          <div className="text-white font-bold text-xl px-4 mb-8">
+            Requirements<br />Tool
+          </div>
+          <nav className="flex flex-col gap-2">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = pathname === item.href;
+              return (
+                <button
+                  key={item.href}
+                  onClick={() => router.push(item.href)}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all"
+                  style={{
+                    background: active ? '#FF6B6B' : 'transparent',
+                    color: active ? 'white' : '#94A3B8',
+                  }}
+                >
+                  <Icon size={18} />
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all"
+          style={{ color: '#94A3B8' }}
+        >
+          <LogOut size={18} />
+          Logout
+        </button>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto">
+        {children}
+      </div>
+    </div>
+  );
+}

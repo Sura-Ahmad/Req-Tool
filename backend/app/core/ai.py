@@ -1,38 +1,29 @@
-import anthropic
+import google.generativeai as genai
 from app.core.config import settings
-from app.knowledge_base_loader import text_to_embedding, COLLECTION_NAME
 from qdrant_client import QdrantClient
+from app.knowledge_base_loader import text_to_embedding, COLLECTION_NAME
 
-client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+genai.configure(api_key=settings.GEMINI_API_KEY)
+model = genai.GenerativeModel('gemini-2.0-flash')
 qdrant_client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
 
 def get_knowledge_context(domain: str, query: str) -> str:
     try:
         embedding = text_to_embedding(query)
-        results = qdrant_client.search(
+        results = qdrant_client.query_points(
             collection_name=COLLECTION_NAME,
-            query_vector=embedding,
-            query_filter={
-                "must": [{"key": "domain", "match": {"value": domain}}]
-            },
+            query=embedding,
+            query_filter={"must": [{"key": "domain", "match": {"value": domain}}]},
             limit=3
-        )
+        ).points
         if not results:
             return ""
-        context = "\n\n".join([r.payload["text"] for r in results])
-        return context
+        return "\n\n".join([r.payload["text"] for r in results])
     except Exception as e:
         print(f"Qdrant search error: {e}")
         return ""
 
-def generate_requirements(
-    domain: str,
-    role: str,
-    answers: list,
-    document_text: str = "",
-    knowledge_context: str = ""
-) -> dict:
-
+def generate_requirements(domain: str, role: str, answers: list, document_text: str = "", knowledge_context: str = "") -> dict:
     if not knowledge_context:
         query = f"{domain} system requirements {' '.join([a.get('answer', '') for a in answers])}"
         knowledge_context = get_knowledge_context(domain, query)
@@ -41,7 +32,7 @@ def generate_requirements(
 
     prompt = f"""You are an expert requirements engineer specializing in the {domain} domain in Jordan.
 
-Your task is to generate comprehensive software requirements based on the following information:
+Generate comprehensive software requirements based on:
 
 ## Project Context
 - Domain: {domain}
@@ -51,45 +42,30 @@ Your task is to generate comprehensive software requirements based on the follow
 ## Questionnaire Answers
 {answers_text}
 
-{"## Additional Document Content" if document_text else ""}
+{"## Additional Document" if document_text else ""}
 {document_text if document_text else ""}
 
-{"## Domain Knowledge Base (Jordan-specific regulations and standards)" if knowledge_context else ""}
+{"## Domain Knowledge Base" if knowledge_context else ""}
 {knowledge_context if knowledge_context else ""}
 
-## Instructions
-Generate requirements tailored for a {role}. Format them as follows:
+Generate requirements for a {role}:
 
 ### Functional Requirements
-FR-1: [Requirement description]
-FR-2: [Requirement description]
+FR-1: [description]
+FR-2: [description]
 
 ### Non-Functional Requirements
-NFR-1: [Requirement description]
-NFR-2: [Requirement description]
+NFR-1: [description]
+NFR-2: [description]"""
 
-Make sure requirements are:
-- Clear and unambiguous
-- Specific to the {domain} domain in Jordan
-- Appropriate for the {role} role
-- Based on Jordanian regulations and standards where applicable
-"""
-
-    message = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=2000,
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    response_text = message.content[0].text
+    response = model.generate_content(prompt)
+    response_text = response.text
 
     functional = []
     non_functional = []
-
-    lines = response_text.split("\n")
     current_section = None
 
-    for line in lines:
+    for line in response_text.split("\n"):
         line = line.strip()
         if "Functional Requirements" in line and "Non-" not in line:
             current_section = "functional"
@@ -100,8 +76,4 @@ Make sure requirements are:
         elif line.startswith("NFR-") and current_section == "non_functional":
             non_functional.append(line)
 
-    return {
-        "functional": functional,
-        "non_functional": non_functional,
-        "raw": response_text
-    }
+    return {"functional": functional, "non_functional": non_functional, "raw": response_text}

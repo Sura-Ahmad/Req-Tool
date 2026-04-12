@@ -1,6 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from uuid import UUID
-from typing import List, Optional
+from typing import List
 from enum import Enum
 
 class ProjectRole(str, Enum):
@@ -10,23 +10,19 @@ class ProjectRole(str, Enum):
     STAKEHOLDER = "stakeholder"
 
 class DomainResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: UUID
     name: str
     name_ar: str
     country: str
 
-    class Config:
-        from_attributes = True
-
 class QuestionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: UUID
     domain_id: UUID
     question_text: str
     question_text_ar: str
     question_order: str
-
-    class Config:
-        from_attributes = True
 
 class AnswerItem(BaseModel):
     question_id: UUID
@@ -39,13 +35,8 @@ class SessionCreate(BaseModel):
     answers: List[AnswerItem]
 
 class SessionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: UUID
     domain_id: UUID
     country: str
     role: str
-
-    class Config:
-        from_attributes = True
-
-    class Config:
-        from_attributes = True
