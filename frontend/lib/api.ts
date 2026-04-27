@@ -26,6 +26,12 @@ export const register = (full_name: string, email: string, password: string) =>
 export const logout = (refresh_token: string) =>
   api.post('/auth/logout', { refresh_token });
 
+export const forgotPassword = (email: string) =>
+  api.post('/auth/forgot-password', { email });
+
+export const resetPassword = (token: string, new_password: string) =>
+  api.post('/auth/reset-password', { token, new_password });
+
 // Domains
 export const getDomains = (country: string) =>
   api.get(`/domains/?country=${country}`);

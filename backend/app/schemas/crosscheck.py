@@ -9,6 +9,7 @@ class IssueItem(BaseModel):
     issue_type: str
     issue_detail: str
     highlight_color: str
+    conflict_with: str = ""
 
 class CrossCheckResponse(BaseModel):
     session_id: UUID

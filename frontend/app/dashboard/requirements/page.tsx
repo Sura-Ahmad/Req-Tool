@@ -120,12 +120,27 @@ export default function RequirementsPage() {
             </button>
           )}
         </div>
-        {issueColor && (
-          <div className="mt-2 text-xs px-2 py-1 rounded-full inline-block text-white"
-            style={{ background: issueColor }}>
-            {issues.find(i => i.requirement_id === req.id)?.issue_type}
-          </div>
-        )}
+        {issueColor && (() => {
+  const issue = issues.find(i => i.requirement_id === req.id);
+  return (
+    <div className="mt-2">
+      <div className="text-xs px-2 py-1 rounded-full inline-block text-white mb-2"
+        style={{ background: issueColor }}>
+        {issue?.issue_type}
+      </div>
+      {issue?.issue_detail && (
+        <p className="text-xs text-gray-600 mt-1">
+          <span className="font-medium">Detail:</span> {issue.issue_detail}
+        </p>
+      )}
+      {issue?.conflict_with && (
+        <p className="text-xs text-gray-500 mt-1">
+          <span className="font-medium">Conflicts with:</span> {issue.conflict_with}
+        </p>
+      )}
+    </div>
+  );
+})()}
       </div>
     );
   };
@@ -151,16 +166,22 @@ export default function RequirementsPage() {
         </button>
 
         {issues.length > 0 && (
-          <div className="text-xs">
-            <p className="font-medium text-gray-700 mb-2">Legend:</p>
-            {[{ color: '#FFA500', label: 'Ambiguity' }, { color: '#FF6B6B', label: 'Duplicate' }, { color: '#9B59B6', label: 'Inconsistency' }].map(i => (
-              <div key={i.label} className="flex items-center gap-2 mb-1">
-                <div className="w-3 h-3 rounded-full" style={{ background: i.color }} />
-                <span className="text-gray-600">{i.label}</span>
-              </div>
-            ))}
-          </div>
-        )}
+  <div className="text-xs">
+    <p className="font-medium text-gray-700 mb-2">Legend:</p>
+    {[
+      { color: '#FFA500', label: 'Ambiguity' },
+      { color: '#FF6B6B', label: 'Duplicate' },
+      { color: '#9B59B6', label: 'Inconsistency' },
+      { color: '#FF0000', label: 'Conflict' },
+      { color: '#3498DB', label: 'Unsupported' }
+    ].map(i => (
+      <div key={i.label} className="flex items-center gap-2 mb-1">
+        <div className="w-3 h-3 rounded-full" style={{ background: i.color }} />
+        <span className="text-gray-600">{i.label}</span>
+      </div>
+    ))}
+  </div>
+)}
 
         <div>
           <p className="font-medium text-gray-700 mb-2 text-sm">Export</p>

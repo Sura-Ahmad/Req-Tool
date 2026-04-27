@@ -64,12 +64,16 @@ User Answers:
 Domain Knowledge:
 {kb_context}
 
-Find issues and return JSON array.
-
-Each issue must have:
-- requirement_code
+Find issues and return JSON array. Each issue must have:
+- requirement_code: the code of the problematic requirement (e.g., "FR-1")
 - issue_type: one of ["ambiguity", "duplicate", "inconsistency", "conflict", "unsupported"]
-- issue_detail
+- issue_detail: clear explanation of the issue
+- conflict_with: specify EXACTLY what this conflicts with:
+  * If conflicts with another requirement: "Requirement FR-X" or "Requirement NFR-X"
+  * If conflicts with domain rules: "Domain Knowledge: [quote the specific rule]"
+  * If unsupported by user input: "User Answer: [quote what user said or didn't say]"
+  * If duplicate: "Duplicate of FR-X"
+  * If ambiguity: "N/A"
 
 Return ONLY a valid JSON array. If no issues found, return []."""
 
@@ -114,13 +118,14 @@ Return ONLY a valid JSON array. If no issues found, return []."""
 
         if req and issue_type in color_map:
             issues.append(IssueItem(
-                requirement_id=req.id,
-                code=code,
-                description=req.description,
-                issue_type=issue_type,
-                issue_detail=issue.get("issue_detail", ""),
-                highlight_color=color_map[issue_type]
-            ))
+            requirement_id=req.id,
+            code=code,
+            description=req.description,
+            issue_type=issue_type,
+            issue_detail=issue.get("issue_detail", ""),
+            highlight_color=color_map[issue_type],
+            conflict_with=issue.get("conflict_with", "")
+        ))
             if issue_type == "ambiguity":
                 ambiguities += 1
             elif issue_type == "duplicate":

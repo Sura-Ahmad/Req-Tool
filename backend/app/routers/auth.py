@@ -1,12 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.user import User, RefreshToken
-from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, RefreshRequest, UserResponse
+from app.models.user import User, RefreshToken, PasswordResetToken
+from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, RefreshRequest, UserResponse, ForgotPasswordRequest, ResetPasswordRequest
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token, verify_token
+from app.core.email import send_reset_email
 from datetime import datetime, timedelta
 from app.core.config import settings
 import hashlib
+import secrets
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -62,6 +64,60 @@ def logout(data: RefreshRequest, db: Session = Depends(get_db)):
         db_token.is_revoked = True
         db.commit()
     return {"message": "Logged out successfully"}
+
+@router.post("/forgot-password")
+def forgot_password(data: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == data.email).first()
+    if user and user.is_active:
+        # Invalidate any existing unused tokens for this user
+        db.query(PasswordResetToken).filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.is_used == False
+        ).update({"is_used": True})
+        db.flush()
+
+        token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        reset_token = PasswordResetToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=datetime.utcnow() + timedelta(hours=1)
+        )
+        db.add(reset_token)
+        db.commit()
+
+        reset_link = f"{settings.FRONTEND_URL}/auth/reset-password?token={token}"
+        background_tasks.add_task(send_reset_email, user.email, user.full_name, reset_link)
+
+    # Always return the same response to prevent email enumeration
+    return {"message": "If this email is registered, you will receive a password reset link."}
+
+
+@router.post("/reset-password")
+def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
+    if len(data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    token_hash = hashlib.sha256(data.token.encode()).hexdigest()
+    reset_token = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token_hash == token_hash,
+        PasswordResetToken.is_used == False,
+        PasswordResetToken.expires_at > datetime.utcnow()
+    ).first()
+
+    if not reset_token:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link. Please request a new one.")
+
+    user = db.query(User).filter(User.id == reset_token.user_id).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    user.password_hash = hash_password(data.new_password)
+    reset_token.is_used = True
+    db.commit()
+
+    return {"message": "Password reset successfully. You can now log in with your new password."}
+
 
 @router.post("/refresh", response_model=TokenResponse)
 def refresh(data: RefreshRequest, db: Session = Depends(get_db)):
