@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { generateRequirements, getRequirements, updateRequirement, crossCheck, generateSRS, generateUseCases } from '@/lib/api';
 import { Pencil, Check, X } from 'lucide-react';
@@ -22,18 +22,27 @@ export default function RequirementsPage() {
   const [editText, setEditText] = useState('');
   const [issues, setIssues] = useState<any[]>([]);
   const [crossChecking, setCrossChecking] = useState(false);
-  const [sessionInfo, setSessionInfo] = useState<any>(null);
+  const [error, setError] = useState('');
+
+  const hasGenerated = useRef(false);
 
   useEffect(() => {
-    if (sessionId) generateReqs();
+    if (sessionId && !hasGenerated.current) {
+      hasGenerated.current = true;
+      generateReqs();
+    }
   }, [sessionId]);
 
   const generateReqs = async () => {
     setLoading(true);
+    setError('');
     try {
       const res = await generateRequirements(sessionId, documentText);
       setFunctional(res.data.functional);
       setNonFunctional(res.data.non_functional);
+    } catch (e: any) {
+      const errorMsg = e.response?.data?.detail || 'Error generating requirements';
+      setError(errorMsg);
     } finally { setLoading(false); }
   };
 
@@ -170,6 +179,12 @@ export default function RequirementsPage() {
       <div className="flex-1 overflow-auto p-8">
         <h1 className="text-2xl font-bold mb-1" style={{ color: '#1E2A4A' }}>Requirements Dashboard</h1>
         <p className="text-gray-500 mb-6">View and manage your generated requirements</p>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl mb-4">
+            ⚠️ {error}
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex border-b border-gray-100 mb-6">

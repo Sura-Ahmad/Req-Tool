@@ -5,12 +5,13 @@ from app.models.requirements import Requirement
 from app.models.domain import UserSession
 from app.schemas.crosscheck import CrossCheckResponse, IssueItem
 from app.core.config import settings
+from app.knowledge_base_loader import text_to_embedding, qdrant_client, COLLECTION_NAME
 import anthropic
 import json
 import uuid
+from app.models.domain import Question
 
 router = APIRouter(prefix="/crosscheck", tags=["Cross-Check"])
-
 client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 @router.get("/{session_id}", response_model=CrossCheckResponse)
@@ -18,6 +19,17 @@ def cross_check(session_id: str, db: Session = Depends(get_db)):
     session = db.query(UserSession).filter(UserSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    raw_answers = json.loads(session.answers) if session.answers else []
+    questions_map = {}
+    for a in raw_answers:
+        q = db.query(Question).filter(Question.id == a.get("question_id")).first()
+        if q:
+            questions_map[a.get("question_id")] = q.question_text
+    answers_text = "\n".join([
+        f"Q: {questions_map.get(a.get('question_id'), 'Unknown question')} A: {a.get('answer', '')}"
+        for a in raw_answers
+    ]) or "No user answers provided"
 
     requirements = db.query(Requirement).filter(
         Requirement.session_id == session_id
@@ -28,20 +40,38 @@ def cross_check(session_id: str, db: Session = Depends(get_db)):
 
     req_list = "\n".join([f"{r.code}: {r.description}" for r in requirements])
 
-    prompt = f"""You are a requirements engineer. Analyze these requirements and find issues.
+    query_embedding = text_to_embedding(req_list)
+    search_result = qdrant_client.query_points(
+        collection_name=COLLECTION_NAME,
+        query=query_embedding,
+        limit=5
+    ).points
+    kb_context = "\n".join([hit.payload["text"] for hit in search_result])
+
+    prompt = f"""You are a senior requirements engineer.
+
+Analyze the following requirements using:
+1. Internal consistency (requirements vs requirements)
+2. User answers (original input)
+3. Domain knowledge (rules and regulations)
 
 Requirements:
 {req_list}
 
-Find and return a JSON array of issues. Each issue must have:
-- requirement_code: the FR/NFR code
-- issue_type: exactly one of "ambiguity", "duplicate", "inconsistency"
-- issue_detail: brief explanation of the issue
+User Answers:
+{answers_text}
 
-Return ONLY a valid JSON array, no other text. Example:
-[{{"requirement_code": "FR-1", "issue_type": "ambiguity", "issue_detail": "The term 'fast' is vague"}}]
+Domain Knowledge:
+{kb_context}
 
-If no issues found, return an empty array: []"""
+Find issues and return JSON array.
+
+Each issue must have:
+- requirement_code
+- issue_type: one of ["ambiguity", "duplicate", "inconsistency", "conflict", "unsupported"]
+- issue_detail
+
+Return ONLY a valid JSON array. If no issues found, return []."""
 
     message = client.messages.create(
         model="claude-sonnet-4-20250514",
@@ -50,18 +80,26 @@ If no issues found, return an empty array: []"""
     )
 
     response_text = message.content[0].text.strip()
-    
+
     try:
-        issues_data = json.loads(response_text)
+        clean_text = response_text
+        if "```json" in clean_text:
+            clean_text = clean_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in clean_text:
+            clean_text = clean_text.split("```")[1].split("```")[0].strip()
+        issues_data = json.loads(clean_text)
     except:
         issues_data = []
 
+    print(f"Issues found: {len(issues_data)}")
+
     req_map = {r.code: r for r in requirements}
-    
     color_map = {
         "ambiguity": "#FFA500",
         "duplicate": "#FF6B6B",
-        "inconsistency": "#9B59B6"
+        "inconsistency": "#9B59B6",
+        "conflict": "#FF0000",
+        "unsupported": "#3498DB"
     }
 
     issues = []
@@ -73,7 +111,7 @@ If no issues found, return an empty array: []"""
         code = issue.get("requirement_code", "")
         issue_type = issue.get("issue_type", "")
         req = req_map.get(code)
-        
+
         if req and issue_type in color_map:
             issues.append(IssueItem(
                 requirement_id=req.id,

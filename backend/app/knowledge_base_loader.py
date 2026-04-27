@@ -12,7 +12,7 @@ anthropic_client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 COLLECTION_NAME = "knowledge_base"
 CHUNK_SIZE = 500
-VECTOR_SIZE = 1536
+VECTOR_SIZE = 384
 
 def ensure_collection():
     collections = qdrant_client.get_collections().collections
@@ -26,23 +26,10 @@ def ensure_collection():
     else:
         print(f"Collection '{COLLECTION_NAME}' already exists.")
 
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer('all-MiniLM-L6-v2')
 def text_to_embedding(text: str) -> list:
-    hash_bytes = hashlib.sha256(text.encode()).digest()
-    import struct
-    floats = []
-    for i in range(0, min(len(hash_bytes), VECTOR_SIZE * 4), 4):
-        chunk = hash_bytes[i:i+4]
-        if len(chunk) == 4:
-            val = struct.unpack('f', chunk)[0]
-            if val != val or abs(val) == float('inf'):
-                val = 0.0
-            floats.append(val)
-    while len(floats) < VECTOR_SIZE:
-        floats.append(0.0)
-    magnitude = sum(x**2 for x in floats) ** 0.5
-    if magnitude > 0:
-        floats = [x / magnitude for x in floats]
-    return floats[:VECTOR_SIZE]
+    return model.encode(text).tolist()
 
 def chunk_text(text: str, chunk_size: int = CHUNK_SIZE) -> list:
     words = text.split()
@@ -86,7 +73,7 @@ def load_pdf(file_path: str, domain: str, country: str = "JO"):
         qdrant_client.upsert(collection_name=COLLECTION_NAME, points=points)
         print(f"✅ Added {len(points)} chunks to Qdrant!")
 
-def load_all():
+def load_all():    
     ensure_collection()
     kb_path = "knowledge_base"
     files = {
