@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(node -e \"const d = require\\('docx'\\); console.log\\(Object.keys\\(d\\).filter\\(k => k.toLowerCase\\(\\).includes\\('toc'\\) || k.toLowerCase\\(\\).includes\\('table'\\) || k.toLowerCase\\(\\).includes\\('page'\\)\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(node -e \"const d = require\\('docx'\\); console.log\\(Object.keys\\(d\\).filter\\(k => k.toLowerCase\\(\\).includes\\('align'\\) || k.toLowerCase\\(\\).includes\\('width'\\) || k.toLowerCase\\(\\).includes\\('border'\\) || k.toLowerCase\\(\\).includes\\('shad'\\)\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(node -e \"const d = require\\('docx'\\); const toc = d.TableOfContents; console.log\\(toc.toString\\(\\).substring\\(0, 500\\)\\)\")",
+      "Bash(node -e \"const d = require\\('docx'\\); console.log\\(Object.keys\\(d\\).filter\\(k => k.toLowerCase\\(\\).includes\\('convert'\\) || k.toLowerCase\\(\\).includes\\('twip'\\)\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(npx tsc *)",
+      "Bash(python scripts/create_admin.py)"
+    ]
+  }
+}

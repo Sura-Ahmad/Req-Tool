@@ -76,4 +76,25 @@ export const generateSRS = (session_id: string, project_name: string) =>
 export const generateUseCases = (session_id: string) =>
   api.post('/usecases/generate', { session_id });
 
+// Auth — current user
+export const getMe = () => api.get('/auth/me');
+
+// Admin
+export const getStats = () => api.get('/admin/stats');
+export const getUsers = () => api.get('/admin/users');
+export const toggleUser = (user_id: string) => api.put(`/admin/users/${user_id}/toggle-active`);
+export const getSessions = () => api.get('/admin/sessions');
+export const getDomainsAdmin = () => api.get('/admin/domains');
+export const createDomain = (data: { name: string; name_ar: string; country: string }) =>
+  api.post('/admin/domains', data);
+export const updateDomain = (domain_id: string, data: { name?: string; name_ar?: string; country?: string; is_active?: boolean }) =>
+  api.put(`/admin/domains/${domain_id}`, data);
+export const deleteDomain = (domain_id: string) => api.delete(`/admin/domains/${domain_id}`);
+export const getQuestionsAdmin = (domain_id: string) => api.get(`/admin/domains/${domain_id}/questions`);
+export const createQuestion = (domain_id: string, data: { question_text: string; question_text_ar: string; question_order: string }) =>
+  api.post(`/admin/domains/${domain_id}/questions`, data);
+export const updateQuestion = (question_id: string, data: { question_text?: string; question_text_ar?: string; question_order?: string; is_active?: boolean }) =>
+  api.put(`/admin/questions/${question_id}`, data);
+export const deleteQuestion = (question_id: string) => api.delete(`/admin/questions/${question_id}`);
+
 export default api;

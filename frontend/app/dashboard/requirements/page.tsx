@@ -1,14 +1,16 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { generateRequirements, getRequirements, updateRequirement, crossCheck, generateSRS, generateUseCases } from '@/lib/api';
-import { Pencil, Check, X } from 'lucide-react';
+import { Pencil, Check, X, Download } from 'lucide-react';
+import { generateAndDownloadSRSWord, generateAndDownloadUseCasesWord } from '@/lib/generateSRSWord';
 
 const TABS = ['Functional Requirements', 'Non-Functional Requirements', 'Use Cases', 'Full SRS'];
 
 export default function RequirementsPage() {
   const searchParams = useSearchParams();
-  const sessionId = searchParams.get('session_id') || (typeof window !== 'undefined' ? localStorage.getItem('session_id') : '') || '';
+  const router = useRouter();
+  const sessionId = searchParams.get('session_id') || '';
   const documentText = searchParams.get('document_text') || '';
 
   const [tab, setTab] = useState(0);
@@ -27,7 +29,11 @@ export default function RequirementsPage() {
   const hasGenerated = useRef(false);
 
   useEffect(() => {
-    if (sessionId && !hasGenerated.current) {
+    if (!sessionId) {
+      router.replace('/dashboard');
+      return;
+    }
+    if (!hasGenerated.current) {
       hasGenerated.current = true;
       generateReqs();
     }
@@ -83,6 +89,12 @@ export default function RequirementsPage() {
       setTab(3);
     } finally { setGenerating(false); }
   };
+
+  const handleDownloadWord = () =>
+    generateAndDownloadSRSWord(srs, functional, nonFunctional, 'My Project');
+
+  const handleDownloadUseCasesWord = () =>
+    generateAndDownloadUseCasesWord(useCases, 'My Project');
 
   const getIssueColor = (reqId: string) => {
     const issue = issues.find(i => i.requirement_id === reqId);
@@ -186,12 +198,14 @@ export default function RequirementsPage() {
         <div>
           <p className="font-medium text-gray-700 mb-2 text-sm">Export</p>
           <button onClick={handleGenerateSRS} disabled={generating}
-            className="w-full py-2 rounded-xl border border-gray-200 text-sm text-gray-600 mb-2 hover:bg-gray-50 transition-all">
-            {generating ? 'Generating...' : '↓ Download SRS'}
+            className="w-full py-3 rounded-xl text-white font-medium text-sm transition-all hover:opacity-90 mb-2"
+            style={{ background: '#FF6B6B' }}>
+            {generating ? 'Generating...' : 'Generate SRS'}
           </button>
           <button onClick={handleGenerateUseCases} disabled={generating}
-            className="w-full py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-all">
-            {generating ? 'Generating...' : '↓ Use Cases'}
+            className="w-full py-3 rounded-xl text-white font-medium text-sm transition-all hover:opacity-90"
+            style={{ background: '#FF6B6B' }}>
+            {generating ? 'Generating...' : 'Generate Use Cases'}
           </button>
         </div>
       </div>
@@ -232,21 +246,43 @@ export default function RequirementsPage() {
             {tab === 2 && (
               useCases.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">
-                  <p>Click "Use Cases" to generate use cases</p>
+                  <p>Click "Generate Use Cases" to generate use cases</p>
                 </div>
-              ) : useCases.map((uc, i) => (
-                <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5 mb-3">
-                  <h3 className="font-bold text-gray-800 mb-2">{uc.title}</h3>
-                  <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Actor:</span> {uc.actor}</p>
-                  <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Preconditions:</span> {uc.preconditions}</p>
-                  <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Main Flow:</span> {uc.main_flow}</p>
-                  <p className="text-sm text-gray-500"><span className="font-medium">Postconditions:</span> {uc.postconditions}</p>
-                </div>
-              ))
+              ) : (
+                <>
+                  <div className="flex justify-end mb-4">
+                    <button
+                      onClick={handleDownloadUseCasesWord}
+                      className="flex items-center gap-2 px-5 py-2 rounded-full text-white text-sm font-medium transition-all hover:opacity-90"
+                      style={{ background: '#1E2A4A' }}
+                    >
+                      <Download size={16} /> Download as Word
+                    </button>
+                  </div>
+                  {useCases.map((uc, i) => (
+                    <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5 mb-3">
+                      <h3 className="font-bold text-gray-800 mb-2">{uc.title}</h3>
+                      <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Actor:</span> {uc.actor}</p>
+                      <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Preconditions:</span> {uc.preconditions}</p>
+                      <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Main Flow:</span> {uc.main_flow}</p>
+                      <p className="text-sm text-gray-500"><span className="font-medium">Postconditions:</span> {uc.postconditions}</p>
+                    </div>
+                  ))}
+                </>
+              )
             )}
             {tab === 3 && (
               srs ? (
                 <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                  <div className="flex justify-end mb-4">
+                    <button
+                      onClick={handleDownloadWord}
+                      className="flex items-center gap-2 px-5 py-2 rounded-full text-white text-sm font-medium transition-all hover:opacity-90"
+                      style={{ background: '#1E2A4A' }}
+                    >
+                      <Download size={16} /> Download as Word
+                    </button>
+                  </div>
                   <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans">{srs}</pre>
                 </div>
               ) : (

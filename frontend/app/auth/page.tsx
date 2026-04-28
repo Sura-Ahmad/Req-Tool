@@ -32,8 +32,14 @@ export default function AuthPage() {
       localStorage.setItem('access_token', res.data.access_token);
       localStorage.setItem('refresh_token', res.data.refresh_token);
       router.push('/dashboard');
-    } catch {
-      setError('Invalid email or password');
+    } catch (err: any) {
+      if (err?.response?.data?.detail) {
+        setError(err.response.data.detail);
+      } else if (err?.code === 'ERR_NETWORK' || err?.code === 'ECONNREFUSED') {
+        setError('Cannot connect to server. Make sure the backend is running.');
+      } else {
+        setError('Invalid email or password');
+      }
     } finally { setLoading(false); }
   };
 
@@ -46,8 +52,14 @@ export default function AuthPage() {
       localStorage.setItem('access_token', res.data.access_token);
       localStorage.setItem('refresh_token', res.data.refresh_token);
       router.push('/dashboard');
-    } catch {
-      setError('Email already registered');
+    } catch (err: any) {
+      if (err?.response?.data?.detail) {
+        setError(err.response.data.detail);
+      } else if (err?.code === 'ERR_NETWORK' || err?.code === 'ECONNREFUSED') {
+        setError('Cannot connect to server. Make sure the backend is running.');
+      } else {
+        setError('Email already registered');
+      }
     } finally { setLoading(false); }
   };
 

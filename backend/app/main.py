@@ -1,7 +1,7 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, domain, upload, requirements, crosscheck, srs, usecases
+from app.routers import auth, domain, upload, requirements, crosscheck, srs, usecases, admin
 
 logging.basicConfig(level=logging.INFO)
 
@@ -22,6 +22,7 @@ app.include_router(requirements.router)
 app.include_router(crosscheck.router)
 app.include_router(srs.router)
 app.include_router(usecases.router)
+app.include_router(admin.router)
 
 @app.get("/")
 def root():

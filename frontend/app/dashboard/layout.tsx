@@ -1,10 +1,19 @@
 'use client';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { LayoutDashboard, FileText, Settings, LogOut } from 'lucide-react';
+import { getMe } from '@/lib/api';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    getMe().then(res => {
+      if (res.data.role === 'admin') setIsAdmin(true);
+    }).catch(() => {});
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
@@ -15,7 +24,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navItems = [
     { label: 'Wizard', icon: LayoutDashboard, href: '/dashboard' },
     { label: 'Requirements', icon: FileText, href: '/dashboard/requirements' },
-    { label: 'Admin', icon: Settings, href: '/dashboard/admin' },
+    ...(isAdmin ? [{ label: 'Admin', icon: Settings, href: '/dashboard/admin' }] : []),
   ];
 
   return (
@@ -29,7 +38,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <nav className="flex flex-col gap-2">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const active = pathname === item.href;
+              const active = pathname === item.href || (item.href === '/dashboard/admin' && pathname.startsWith('/dashboard/admin'));
               return (
                 <button
                   key={item.href}
