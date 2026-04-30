@@ -7,6 +7,66 @@ import { generateAndDownloadSRSWord, generateAndDownloadUseCasesWord } from '@/l
 
 const TABS = ['Functional Requirements', 'Non-Functional Requirements', 'Use Cases', 'Full SRS'];
 
+interface RequirementCardProps {
+  req: any;
+  editingId: string | null;
+  editText: string;
+  issues: any[];
+  onEdit: (req: any) => void;
+  onSave: (id: string) => void;
+  onCancel: () => void;
+  onEditTextChange: (v: string) => void;
+}
+
+function RequirementCard({ req, editingId, editText, issues, onEdit, onSave, onCancel, onEditTextChange }: RequirementCardProps) {
+  const issue = issues.find(i => i.requirement_id === req.id);
+  const issueColor = issue?.highlight_color ?? null;
+  return (
+    <div className="bg-white rounded-2xl border p-5 mb-3 transition-all"
+      style={{ borderColor: issueColor || '#E5E7EB', borderLeftWidth: issueColor ? '4px' : '1px' }}>
+      <div className="flex justify-between items-start">
+        <div className="flex-1">
+          <span className="font-bold text-gray-800 text-sm">{req.code}</span>
+          {editingId === req.id ? (
+            <div className="mt-2">
+              <textarea className="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none text-sm resize-none" rows={3}
+                value={editText} onChange={e => onEditTextChange(e.target.value)} autoFocus />
+              <div className="flex gap-2 mt-2">
+                <button onClick={() => onSave(req.id)} className="flex items-center gap-1 px-3 py-1 rounded-full text-xs text-white" style={{ background: '#4CAF50' }}>
+                  <Check size={12} /> Save
+                </button>
+                <button onClick={onCancel} className="flex items-center gap-1 px-3 py-1 rounded-full text-xs text-white" style={{ background: '#9CA3AF' }}>
+                  <X size={12} /> Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-gray-600 text-sm mt-1">{req.description}</p>
+          )}
+        </div>
+        {editingId !== req.id && (
+          <button onClick={() => onEdit(req)} className="ml-3 text-gray-400 hover:text-gray-600">
+            <Pencil size={16} />
+          </button>
+        )}
+      </div>
+      {issue && (
+        <div className="mt-2">
+          <div className="text-xs px-2 py-1 rounded-full inline-block text-white mb-2" style={{ background: issueColor }}>
+            {issue.issue_type}
+          </div>
+          {issue.issue_detail && (
+            <p className="text-xs text-gray-600 mt-1"><span className="font-medium">Detail:</span> {issue.issue_detail}</p>
+          )}
+          {issue.conflict_with && (
+            <p className="text-xs text-gray-500 mt-1"><span className="font-medium">Conflicts with:</span> {issue.conflict_with}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function RequirementsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -19,7 +79,8 @@ export default function RequirementsPage() {
   const [useCases, setUseCases] = useState<any[]>([]);
   const [srs, setSrs] = useState('');
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
+  const [generatingSRS, setGeneratingSRS] = useState(false);
+  const [generatingUseCases, setGeneratingUseCases] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [issues, setIssues] = useState<any[]>([]);
@@ -73,21 +134,21 @@ export default function RequirementsPage() {
   };
 
   const handleGenerateUseCases = async () => {
-    setGenerating(true);
+    setGeneratingUseCases(true);
     try {
       const res = await generateUseCases(sessionId);
       setUseCases(res.data.use_cases);
       setTab(2);
-    } finally { setGenerating(false); }
+    } finally { setGeneratingUseCases(false); }
   };
 
   const handleGenerateSRS = async () => {
-    setGenerating(true);
+    setGeneratingSRS(true);
     try {
       const res = await generateSRS(sessionId, 'My Project');
       setSrs(res.data.content);
       setTab(3);
-    } finally { setGenerating(false); }
+    } finally { setGeneratingSRS(false); }
   };
 
   const handleDownloadWord = () =>
@@ -96,66 +157,6 @@ export default function RequirementsPage() {
   const handleDownloadUseCasesWord = () =>
     generateAndDownloadUseCasesWord(useCases, 'My Project');
 
-  const getIssueColor = (reqId: string) => {
-    const issue = issues.find(i => i.requirement_id === reqId);
-    return issue ? issue.highlight_color : null;
-  };
-
-  const RequirementCard = ({ req }: { req: any }) => {
-    const issueColor = getIssueColor(req.id);
-    return (
-      <div className="bg-white rounded-2xl border p-5 mb-3 transition-all"
-        style={{ borderColor: issueColor || '#E5E7EB', borderLeftWidth: issueColor ? '4px' : '1px' }}>
-        <div className="flex justify-between items-start">
-          <div className="flex-1">
-            <span className="font-bold text-gray-800 text-sm">{req.code}</span>
-            {editingId === req.id ? (
-              <div className="mt-2">
-                <textarea className="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none text-sm resize-none" rows={3}
-                  value={editText} onChange={e => setEditText(e.target.value)} />
-                <div className="flex gap-2 mt-2">
-                  <button onClick={() => handleSaveEdit(req.id)} className="flex items-center gap-1 px-3 py-1 rounded-full text-xs text-white" style={{ background: '#4CAF50' }}>
-                    <Check size={12} /> Save
-                  </button>
-                  <button onClick={() => setEditingId(null)} className="flex items-center gap-1 px-3 py-1 rounded-full text-xs text-white" style={{ background: '#9CA3AF' }}>
-                    <X size={12} /> Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-gray-600 text-sm mt-1">{req.description}</p>
-            )}
-          </div>
-          {editingId !== req.id && (
-            <button onClick={() => handleEdit(req)} className="ml-3 text-gray-400 hover:text-gray-600">
-              <Pencil size={16} />
-            </button>
-          )}
-        </div>
-        {issueColor && (() => {
-  const issue = issues.find(i => i.requirement_id === req.id);
-  return (
-    <div className="mt-2">
-      <div className="text-xs px-2 py-1 rounded-full inline-block text-white mb-2"
-        style={{ background: issueColor }}>
-        {issue?.issue_type}
-      </div>
-      {issue?.issue_detail && (
-        <p className="text-xs text-gray-600 mt-1">
-          <span className="font-medium">Detail:</span> {issue.issue_detail}
-        </p>
-      )}
-      {issue?.conflict_with && (
-        <p className="text-xs text-gray-500 mt-1">
-          <span className="font-medium">Conflicts with:</span> {issue.conflict_with}
-        </p>
-      )}
-    </div>
-  );
-})()}
-      </div>
-    );
-  };
 
   return (
     <div className="flex h-screen">
@@ -197,15 +198,15 @@ export default function RequirementsPage() {
 
         <div>
           <p className="font-medium text-gray-700 mb-2 text-sm">Export</p>
-          <button onClick={handleGenerateSRS} disabled={generating}
+          <button onClick={handleGenerateSRS} disabled={generatingSRS || generatingUseCases}
             className="w-full py-3 rounded-xl text-white font-medium text-sm transition-all hover:opacity-90 mb-2"
             style={{ background: '#FF6B6B' }}>
-            {generating ? 'Generating...' : 'Generate SRS'}
+            {generatingSRS ? 'Generating...' : 'Generate SRS'}
           </button>
-          <button onClick={handleGenerateUseCases} disabled={generating}
+          <button onClick={handleGenerateUseCases} disabled={generatingSRS || generatingUseCases}
             className="w-full py-3 rounded-xl text-white font-medium text-sm transition-all hover:opacity-90"
             style={{ background: '#FF6B6B' }}>
-            {generating ? 'Generating...' : 'Generate Use Cases'}
+            {generatingUseCases ? 'Generating...' : 'Generate Use Cases'}
           </button>
         </div>
       </div>
@@ -241,8 +242,8 @@ export default function RequirementsPage() {
           </div>
         ) : (
           <>
-            {tab === 0 && functional.map(r => <RequirementCard key={r.id} req={r} />)}
-            {tab === 1 && nonFunctional.map(r => <RequirementCard key={r.id} req={r} />)}
+            {tab === 0 && functional.map(r => <RequirementCard key={r.id} req={r} editingId={editingId} editText={editText} issues={issues} onEdit={handleEdit} onSave={handleSaveEdit} onCancel={() => setEditingId(null)} onEditTextChange={setEditText} />)}
+            {tab === 1 && nonFunctional.map(r => <RequirementCard key={r.id} req={r} editingId={editingId} editText={editText} issues={issues} onEdit={handleEdit} onSave={handleSaveEdit} onCancel={() => setEditingId(null)} onEditTextChange={setEditText} />)}
             {tab === 2 && (
               useCases.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">

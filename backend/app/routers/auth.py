@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header, Request
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.database import get_db
@@ -6,6 +6,7 @@ from app.models.user import User, RefreshToken, PasswordResetToken
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, RefreshRequest, UserResponse, ForgotPasswordRequest, ResetPasswordRequest
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token, verify_token
 from app.core.email import send_reset_email
+from app.core.audit import log_login
 from datetime import datetime, timedelta
 from app.core.config import settings
 import hashlib
@@ -39,10 +40,18 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 @router.post("/login", response_model=TokenResponse)
-def login(data: LoginRequest, db: Session = Depends(get_db)):
+def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
-    if not user or not verify_password(data.password, user.password_hash):
+    if not user:
+        log_login(db, email=data.email, success=False, request=request, failure_reason="user_not_found")
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not verify_password(data.password, user.password_hash):
+        log_login(db, email=data.email, success=False, user_id=user.id, request=request, failure_reason="wrong_password")
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not user.is_active:
+        log_login(db, email=data.email, success=False, user_id=user.id, request=request, failure_reason="account_disabled")
+        raise HTTPException(status_code=401, detail="Account is disabled")
+    log_login(db, email=data.email, success=True, user_id=user.id, request=request)
     user.last_login = datetime.utcnow()
     db.commit()
     access_token = create_access_token({"sub": str(user.id)})

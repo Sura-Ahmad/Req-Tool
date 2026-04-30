@@ -97,4 +97,39 @@ export const updateQuestion = (question_id: string, data: { question_text?: stri
   api.put(`/admin/questions/${question_id}`, data);
 export const deleteQuestion = (question_id: string) => api.delete(`/admin/questions/${question_id}`);
 
+export const getAuditLog = (params?: {
+  page?: number;
+  limit?: number;
+  user_id?: string;
+  action?: string;
+  date_from?: string;
+  date_to?: string;
+}) => api.get('/admin/audit-log', { params });
+
+export const getLoginHistory = (params?: {
+  page?: number;
+  limit?: number;
+  email?: string;
+  success?: boolean;
+  date_from?: string;
+  date_to?: string;
+}) => api.get('/admin/login-history', { params });
+
+export const getFailedAttempts = () => api.get('/admin/login-history/failed-attempts');
+
+// Profile
+export const getMyProfile = () => api.get('/profile/me');
+export const updateProfile = (data: { full_name?: string; email?: string }) =>
+  api.put('/profile/update', data);
+export const uploadAvatar = (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return api.post('/profile/upload-avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+export const deleteAvatar = () => api.delete('/profile/avatar');
+export const changePassword = (current_password: string, new_password: string) =>
+  api.put('/profile/change-password', { current_password, new_password });
+
 export default api;

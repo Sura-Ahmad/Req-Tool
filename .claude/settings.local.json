@@ -7,7 +7,11 @@
       "Bash(node -e \"const d = require\\('docx'\\); const toc = d.TableOfContents; console.log\\(toc.toString\\(\\).substring\\(0, 500\\)\\)\")",
       "Bash(node -e \"const d = require\\('docx'\\); console.log\\(Object.keys\\(d\\).filter\\(k => k.toLowerCase\\(\\).includes\\('convert'\\) || k.toLowerCase\\(\\).includes\\('twip'\\)\\).join\\('\\\\n'\\)\\)\")",
       "Bash(npx tsc *)",
-      "Bash(python scripts/create_admin.py)"
+      "Bash(python scripts/create_admin.py)",
+      "Bash(curl -s http://localhost:8000/)",
+      "PowerShell(netstat -ano)",
+      "PowerShell(cd \"C:\\\\Users\\\\user\\\\OneDrive\\\\Desktop\\\\RequirementsSuperTool\\\\backend\"; Start-Job -ScriptBlock { Set-Location \"C:\\\\Users\\\\user\\\\OneDrive\\\\Desktop\\\\RequirementsSuperTool\\\\backend\"; python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 } | Out-Null; Start-Sleep -Seconds 10; netstat -ano | findstr \":8000\"; Invoke-WebRequest -Uri \"http://localhost:8000/\" -UseBasicParsing -TimeoutSec 5 2>&1 | Select-Object -ExpandProperty Content)",
+      "PowerShell(cd \"C:\\\\Users\\\\user\\\\OneDrive\\\\Desktop\\\\RequirementsSuperTool\\\\backend\"; Start-Job -Name \"backend\" -ScriptBlock { Set-Location \"C:\\\\Users\\\\user\\\\OneDrive\\\\Desktop\\\\RequirementsSuperTool\\\\backend\"; python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 2>&1 } | Out-Null; Start-Sleep -Seconds 30; netstat -ano | findstr \":8000\")"
     ]
   }
 }
