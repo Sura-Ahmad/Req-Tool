@@ -16,6 +16,65 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+let isRefreshing = false;
+let pendingQueue: { resolve: (token: string) => void; reject: (err: unknown) => void }[] = [];
+
+const processPendingQueue = (error: unknown, token: string | null) => {
+  pendingQueue.forEach(p => (token ? p.resolve(token) : p.reject(error)));
+  pendingQueue = [];
+};
+
+api.interceptors.response.use(
+  res => res,
+  async error => {
+    const original = error.config;
+    if (error.response?.status !== 401 || original._retry) {
+      return Promise.reject(error);
+    }
+    original._retry = true;
+
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        pendingQueue.push({
+          resolve: (token) => {
+            original.headers.Authorization = `Bearer ${token}`;
+            resolve(api(original));
+          },
+          reject,
+        });
+      });
+    }
+
+    isRefreshing = true;
+    const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
+
+    if (!refreshToken) {
+      isRefreshing = false;
+      if (typeof window !== 'undefined') window.location.href = '/auth';
+      return Promise.reject(error);
+    }
+
+    try {
+      const res = await axios.post(`${API_URL}/auth/refresh`, { refresh_token: refreshToken });
+      const { access_token, refresh_token: newRefresh } = res.data;
+      localStorage.setItem('access_token', access_token);
+      localStorage.setItem('refresh_token', newRefresh);
+      api.defaults.headers.common.Authorization = `Bearer ${access_token}`;
+      original.headers.Authorization = `Bearer ${access_token}`;
+      processPendingQueue(null, access_token);
+      return api(original);
+    } catch (refreshError) {
+      processPendingQueue(refreshError, null);
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      if (typeof window !== 'undefined') window.location.href = '/auth';
+      return Promise.reject(refreshError);
+    } finally {
+      isRefreshing = false;
+    }
+  }
+);
+
 // Auth
 export const login = (email: string, password: string) =>
   api.post('/auth/login', { email, password });
@@ -85,15 +144,15 @@ export const getUsers = () => api.get('/admin/users');
 export const toggleUser = (user_id: string) => api.put(`/admin/users/${user_id}/toggle-active`);
 export const getSessions = () => api.get('/admin/sessions');
 export const getDomainsAdmin = () => api.get('/admin/domains');
-export const createDomain = (data: { name: string; name_ar: string; country: string }) =>
+export const createDomain = (data: { name: string; country: string }) =>
   api.post('/admin/domains', data);
-export const updateDomain = (domain_id: string, data: { name?: string; name_ar?: string; country?: string; is_active?: boolean }) =>
+export const updateDomain = (domain_id: string, data: { name?: string; country?: string; is_active?: boolean }) =>
   api.put(`/admin/domains/${domain_id}`, data);
 export const deleteDomain = (domain_id: string) => api.delete(`/admin/domains/${domain_id}`);
 export const getQuestionsAdmin = (domain_id: string) => api.get(`/admin/domains/${domain_id}/questions`);
-export const createQuestion = (domain_id: string, data: { question_text: string; question_text_ar: string; question_order: string }) =>
+export const createQuestion = (domain_id: string, data: { question_text: string; question_order: string }) =>
   api.post(`/admin/domains/${domain_id}/questions`, data);
-export const updateQuestion = (question_id: string, data: { question_text?: string; question_text_ar?: string; question_order?: string; is_active?: boolean }) =>
+export const updateQuestion = (question_id: string, data: { question_text?: string; question_order?: string; is_active?: boolean }) =>
   api.put(`/admin/questions/${question_id}`, data);
 export const deleteQuestion = (question_id: string) => api.delete(`/admin/questions/${question_id}`);
 
@@ -117,18 +176,23 @@ export const getLoginHistory = (params?: {
 
 export const getFailedAttempts = () => api.get('/admin/login-history/failed-attempts');
 
+// Knowledge Base
+export const getKbFiles = () => api.get('/admin/knowledge-base');
+export const uploadKbFile = (file: File, domain: string, country: string) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('domain', domain);
+  formData.append('country', country);
+  return api.post('/admin/knowledge-base/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+export const deleteKbFile = (entryId: string) => api.delete(`/admin/knowledge-base/${entryId}`);
+
 // Profile
 export const getMyProfile = () => api.get('/profile/me');
 export const updateProfile = (data: { full_name?: string; email?: string }) =>
   api.put('/profile/update', data);
-export const uploadAvatar = (file: File) => {
-  const formData = new FormData();
-  formData.append('file', file);
-  return api.post('/profile/upload-avatar', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
-};
-export const deleteAvatar = () => api.delete('/profile/avatar');
 export const changePassword = (current_password: string, new_password: string) =>
   api.put('/profile/change-password', { current_password, new_password });
 

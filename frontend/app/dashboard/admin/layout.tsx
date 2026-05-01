@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { BarChart2, Users, List, Globe, Activity, Shield } from 'lucide-react';
+import { BarChart2, Users, List, Globe, Activity, Shield, BookOpen } from 'lucide-react';
 import { getMe } from '@/lib/api';
 
 const adminNav = [
@@ -9,6 +9,7 @@ const adminNav = [
   { label: 'Users', icon: Users, href: '/dashboard/admin/users' },
   { label: 'Sessions', icon: List, href: '/dashboard/admin/sessions' },
   { label: 'Domains & Questions', icon: Globe, href: '/dashboard/admin/domains' },
+  { label: 'Knowledge Base', icon: BookOpen, href: '/dashboard/admin/knowledge-base' },
   { label: 'Audit Log', icon: Activity, href: '/dashboard/admin/audit-log' },
   { label: 'Login History', icon: Shield, href: '/dashboard/admin/login-history' },
 ];

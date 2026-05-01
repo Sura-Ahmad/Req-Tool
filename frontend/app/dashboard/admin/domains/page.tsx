@@ -1,6 +1,25 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, X, Check } from 'lucide-react';
+
+type Toast = { type: 'success' | 'error'; message: string } | null;
+
+function ToastBanner({ toast, onClose }: { toast: Toast; onClose: () => void }) {
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(onClose, 3500);
+    return () => clearTimeout(t);
+  }, [toast]);
+  if (!toast) return null;
+  return (
+    <div
+      className="fixed top-6 right-6 z-50 px-5 py-3 rounded-2xl shadow-lg text-sm font-medium text-white"
+      style={{ background: toast.type === 'success' ? '#4CAF50' : '#FF6B6B' }}
+    >
+      {toast.message}
+    </div>
+  );
+}
 import {
   getDomainsAdmin, createDomain, updateDomain, deleteDomain,
   getQuestionsAdmin, createQuestion, updateQuestion, deleteQuestion,
@@ -9,7 +28,6 @@ import {
 interface Domain {
   id: string;
   name: string;
-  name_ar: string;
   country: string;
   is_active: boolean;
   created_at: string | null;
@@ -19,13 +37,12 @@ interface Question {
   id: string;
   domain_id: string;
   question_text: string;
-  question_text_ar: string;
   question_order: string;
   is_active: boolean;
 }
 
-const emptyDomainForm = { name: '', name_ar: '', country: '' };
-const emptyQuestionForm = { question_text: '', question_text_ar: '', question_order: '' };
+const emptyDomainForm = { name: '', country: '' };
+const emptyQuestionForm = { question_text: '', question_order: '' };
 
 export default function DomainsPage() {
   const [domains, setDomains] = useState<Domain[]>([]);
@@ -37,6 +54,7 @@ export default function DomainsPage() {
   const [domainModal, setDomainModal] = useState<{ open: boolean; editing: Domain | null }>({ open: false, editing: null });
   const [domainForm, setDomainForm] = useState(emptyDomainForm);
   const [domainSaving, setDomainSaving] = useState(false);
+  const [toast, setToast] = useState<Toast>(null);
 
   // Question modal state
   const [questionModal, setQuestionModal] = useState<{ open: boolean; domainId: string; editing: Question | null }>({
@@ -75,12 +93,15 @@ export default function DomainsPage() {
   };
 
   const openEditDomain = (d: Domain) => {
-    setDomainForm({ name: d.name, name_ar: d.name_ar, country: d.country });
+    setDomainForm({ name: d.name, country: d.country });
     setDomainModal({ open: true, editing: d });
   };
 
   const saveDomain = async () => {
-    if (!domainForm.name || !domainForm.country) return;
+    if (!domainForm.name.trim() || !domainForm.country.trim()) {
+      setToast({ type: 'error', message: 'Name and Country Code are required' });
+      return;
+    }
     setDomainSaving(true);
     try {
       if (domainModal.editing) {
@@ -91,6 +112,9 @@ export default function DomainsPage() {
         setDomains(prev => [...prev, res.data]);
       }
       setDomainModal({ open: false, editing: null });
+      setToast({ type: 'success', message: domainModal.editing ? 'Domain updated' : 'Domain created' });
+    } catch (err: any) {
+      setToast({ type: 'error', message: err?.response?.data?.detail ?? 'Failed to save domain' });
     } finally {
       setDomainSaving(false);
     }
@@ -110,12 +134,15 @@ export default function DomainsPage() {
   };
 
   const openEditQuestion = (domainId: string, q: Question) => {
-    setQuestionForm({ question_text: q.question_text, question_text_ar: q.question_text_ar, question_order: q.question_order });
+    setQuestionForm({ question_text: q.question_text, question_order: q.question_order });
     setQuestionModal({ open: true, domainId, editing: q });
   };
 
   const saveQuestion = async () => {
-    if (!questionForm.question_text || !questionForm.question_order) return;
+    if (!questionForm.question_text.trim() || !questionForm.question_order.trim()) {
+      setToast({ type: 'error', message: 'Question text and order are required' });
+      return;
+    }
     setQuestionSaving(true);
     try {
       if (questionModal.editing) {
@@ -134,6 +161,9 @@ export default function DomainsPage() {
         }));
       }
       setQuestionModal({ open: false, domainId: '', editing: null });
+      setToast({ type: 'success', message: questionModal.editing ? 'Question updated' : 'Question created' });
+    } catch (err: any) {
+      setToast({ type: 'error', message: err?.response?.data?.detail ?? 'Failed to save question' });
     } finally {
       setQuestionSaving(false);
     }
@@ -150,6 +180,7 @@ export default function DomainsPage() {
 
   return (
     <>
+      <ToastBanner toast={toast} onClose={() => setToast(null)} />
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-2xl font-bold" style={{ color: '#1E2A4A' }}>Domains & Questions</h1>
         <button onClick={openAddDomain}
@@ -175,7 +206,6 @@ export default function DomainsPage() {
                 </button>
                 <div className="flex-1">
                   <span className="font-semibold text-gray-800">{d.name}</span>
-                  <span className="text-gray-400 text-sm ml-2">{d.name_ar}</span>
                   <span className="ml-3 text-xs px-2 py-0.5 rounded-full uppercase"
                     style={{ background: '#1E2A4A12', color: '#1E2A4A' }}>{d.country}</span>
                 </div>
@@ -214,9 +244,6 @@ export default function DomainsPage() {
                           <span className="text-xs font-bold text-gray-400 mt-0.5 w-6 flex-shrink-0">#{q.question_order}</span>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-gray-700">{q.question_text}</p>
-                            {q.question_text_ar && (
-                              <p className="text-xs text-gray-400 mt-0.5 dir-rtl">{q.question_text_ar}</p>
-                            )}
                           </div>
                           <span className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0"
                             style={{
@@ -260,7 +287,6 @@ export default function DomainsPage() {
             <div className="flex flex-col gap-4">
               {[
                 { label: 'Name (English)', field: 'name' as const, placeholder: 'Healthcare' },
-                { label: 'Name (Arabic)', field: 'name_ar' as const, placeholder: 'الرعاية الصحية' },
                 { label: 'Country Code', field: 'country' as const, placeholder: 'JO' },
               ].map(({ label, field, placeholder }) => (
                 <div key={field}>
@@ -320,16 +346,6 @@ export default function DomainsPage() {
                   placeholder="What is the primary purpose of the system?"
                   value={questionForm.question_text}
                   onChange={e => setQuestionForm(prev => ({ ...prev, question_text: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Question (Arabic)</label>
-                <textarea
-                  className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-blue-400 text-sm resize-none"
-                  rows={3}
-                  placeholder="ما هو الغرض الرئيسي من النظام؟"
-                  value={questionForm.question_text_ar}
-                  onChange={e => setQuestionForm(prev => ({ ...prev, question_text_ar: e.target.value }))}
                 />
               </div>
             </div>

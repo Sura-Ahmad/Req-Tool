@@ -1,6 +1,4 @@
-import os
-import shutil
-from fastapi import APIRouter, Depends, HTTPException, Header, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import Optional
 from pydantic import BaseModel
@@ -9,10 +7,6 @@ from app.models.user import User
 from app.core.security import verify_token, hash_password, verify_password
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
-
-AVATAR_DIR = "uploads/avatars"
-ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
 
 def get_current_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
@@ -36,7 +30,6 @@ def _user_response(user: User) -> dict:
         "full_name": user.full_name,
         "email": user.email,
         "role": user.role.value,
-        "avatar_url": user.avatar_url,
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "last_login": user.last_login.isoformat() if user.last_login else None,
     }
@@ -72,51 +65,6 @@ def update_profile(data: ProfileUpdate, current_user=Depends(get_current_user), 
     return _user_response(current_user)
 
 
-# ── POST /profile/upload-avatar ───────────────────────────────────────────────
-
-@router.post("/upload-avatar")
-async def upload_avatar(file: UploadFile = File(...), current_user=Depends(get_current_user), db: Session = Depends(get_db)):
-    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
-    if ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Only jpg, jpeg, png, webp files are allowed")
-
-    content = await file.read()
-    if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=400, detail="File size must not exceed 5 MB")
-
-    # Remove old avatar file if it exists
-    if current_user.avatar_url:
-        old_path = current_user.avatar_url.lstrip("/")
-        if os.path.exists(old_path):
-            os.remove(old_path)
-
-    os.makedirs(AVATAR_DIR, exist_ok=True)
-    safe_id = str(current_user.id).replace("-", "")
-    filename = f"{safe_id}.{ext}"
-    file_path = os.path.join(AVATAR_DIR, filename)
-
-    with open(file_path, "wb") as f:
-        f.write(content)
-
-    avatar_url = f"/uploads/avatars/{filename}"
-    current_user.avatar_url = avatar_url
-    db.commit()
-    return {"avatar_url": avatar_url}
-
-
-# ── DELETE /profile/avatar ────────────────────────────────────────────────────
-
-@router.delete("/avatar")
-def delete_avatar(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.avatar_url:
-        file_path = current_user.avatar_url.lstrip("/")
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        current_user.avatar_url = None
-        db.commit()
-    return {"message": "Avatar removed"}
-
-
 # ── PUT /profile/change-password ──────────────────────────────────────────────
 
 class ChangePasswordRequest(BaseModel):
@@ -140,5 +88,3 @@ def change_password(data: ChangePasswordRequest, current_user=Depends(get_curren
     current_user.password_hash = hash_password(pwd)
     db.commit()
     return {"message": "Password updated successfully"}
-
-

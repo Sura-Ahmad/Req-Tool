@@ -21,5 +21,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_FROM: str = ""
     FRONTEND_URL: str = "http://localhost:3000"
+    KNOWLEDGE_BASE_PATH: str = "Knowledge_base"
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
 
 settings = Settings()

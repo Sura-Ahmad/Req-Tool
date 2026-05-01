@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Header, Request
+import os
+import shutil
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional
@@ -8,6 +10,10 @@ from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.domain import Domain, Question, UserSession
 from app.models.requirements import Requirement
+from app.knowledge_base_loader import (
+    register_and_load, list_kb_files, delete_kb_file, _kb_path
+)
+from app.core.config import settings
 from app.models.audit import AuditLog, LoginHistory
 from app.core.security import verify_token
 from app.core.audit import log_action
@@ -120,7 +126,7 @@ def get_domains(admin=Depends(get_current_admin), db: Session = Depends(get_db))
 
 class DomainCreate(BaseModel):
     name: str
-    name_ar: str
+    name_ar: str = ""
     country: str
 
 
@@ -226,7 +232,7 @@ def get_questions(domain_id: str, admin=Depends(get_current_admin), db: Session 
 
 class QuestionCreate(BaseModel):
     question_text: str
-    question_text_ar: str
+    question_text_ar: str = ""
     question_order: str
 
 
@@ -442,3 +448,100 @@ def get_failed_attempts(admin=Depends(get_current_admin), db: Session = Depends(
         }
         for r in results
     ]
+
+
+# ── Knowledge Base Management ──────────────────────────────────────────────────
+
+ALLOWED_KB_EXTENSIONS = {"pdf"}
+MAX_KB_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+
+
+@router.get("/knowledge-base")
+def get_kb_files(admin=Depends(get_current_admin)):
+    """List all knowledge-base files registered in the manifest."""
+    return list_kb_files()
+
+
+@router.post("/knowledge-base/upload")
+async def upload_kb_file(
+    request: Request,
+    file: UploadFile = File(...),
+    domain: str = Form(...),
+    country: str = Form(...),
+    admin=Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Upload a PDF to the knowledge base.
+    - domain: e.g. 'Health', 'Transportation'
+    - country: ISO code e.g. 'JO'
+    The file is saved to disk and immediately indexed into Qdrant.
+    Uploading the same domain+country again replaces the previous file.
+    """
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
+    if ext not in ALLOWED_KB_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
+
+    content = await file.read()
+    if len(content) > MAX_KB_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File must not exceed 50 MB.")
+
+    domain = domain.strip()
+    country = country.strip().upper()
+    if not domain or not country:
+        raise HTTPException(status_code=400, detail="domain and country are required.")
+
+    # Build a stable filename so re-uploading the same domain overwrites the old file
+    safe_domain = domain.lower().replace(" ", "_")
+    filename = f"{safe_domain}_{country.lower()}.pdf"
+    os.makedirs(_kb_path(), exist_ok=True)
+    file_path = os.path.join(_kb_path(), filename)
+
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    try:
+        entry = register_and_load(
+            file_path=file_path,
+            domain=domain,
+            country=country,
+            original_name=file.filename or filename,
+        )
+    except Exception as e:
+        # If indexing fails, remove the saved file to avoid orphaned files
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise HTTPException(status_code=500, detail=f"Failed to index PDF: {e}")
+
+    log_action(
+        db=db,
+        user_id=admin.id,
+        action="upload_kb_file",
+        entity_type="knowledge_base",
+        entity_id=entry["id"],
+        details={"domain": domain, "country": country, "chunks": entry["chunks"]},
+        request=request,
+    )
+    return entry
+
+
+@router.delete("/knowledge-base/{entry_id}")
+def remove_kb_file(entry_id: str, request: Request, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
+    """
+    Delete a knowledge-base file by its entry ID (domain_country, e.g. 'health_JO').
+    Removes the PDF from disk and deletes all its vectors from Qdrant.
+    """
+    deleted = delete_kb_file(entry_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Knowledge-base entry not found.")
+
+    log_action(
+        db=db,
+        user_id=admin.id,
+        action="delete_kb_file",
+        entity_type="knowledge_base",
+        entity_id=entry_id,
+        details={},
+        request=request,
+    )
+    return {"message": f"Knowledge-base entry '{entry_id}' deleted successfully."}

@@ -4,14 +4,11 @@ import { useRouter, usePathname } from 'next/navigation';
 import { User, Lock } from 'lucide-react';
 import { getMyProfile } from '@/lib/api';
 
-const API_URL = 'http://localhost:8000';
-
 interface Profile {
   id: string;
   full_name: string;
   email: string;
   role: string;
-  avatar_url: string | null;
 }
 
 const TABS = [
@@ -37,7 +34,6 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
     getMyProfile().then(res => setProfile(res.data)).catch(() => router.replace('/auth'));
   }, []);
 
-  // Re-fetch profile when navigating back to this layout (avatar/name changes)
   useEffect(() => {
     getMyProfile().then(res => setProfile(res.data)).catch(() => {});
   }, [pathname]);
@@ -50,20 +46,12 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6 flex items-center gap-5">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
-            {profile?.avatar_url ? (
-              <img
-                src={`${API_URL}${profile.avatar_url}`}
-                alt={profile.full_name}
-                className="w-20 h-20 rounded-full object-cover border-2 border-gray-100"
-              />
-            ) : (
-              <div
-                className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold"
-                style={{ background: 'linear-gradient(135deg, #1E2A4A 0%, #FF6B6B 100%)' }}
-              >
-                {profile ? getInitials(profile.full_name) : '…'}
-              </div>
-            )}
+            <div
+              className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold"
+              style={{ background: 'linear-gradient(135deg, #1E2A4A 0%, #FF6B6B 100%)' }}
+            >
+              {profile ? getInitials(profile.full_name) : '…'}
+            </div>
           </div>
 
           {/* Info */}

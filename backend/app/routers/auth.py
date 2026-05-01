@@ -155,5 +155,17 @@ def refresh(data: RefreshRequest, db: Session = Depends(get_db)):
     ).first()
     if not db_token:
         raise HTTPException(status_code=401, detail="Token revoked or not found")
-    access_token = create_access_token({"sub": payload["sub"]})
-    return TokenResponse(access_token=access_token, refresh_token=data.refresh_token)
+
+    # Rotation: revoke the old token and issue a brand-new refresh token
+    db_token.is_revoked = True
+
+    new_access_token = create_access_token({"sub": payload["sub"]})
+    new_refresh_token = create_refresh_token({"sub": payload["sub"]})
+    new_hash = hashlib.sha256(new_refresh_token.encode()).hexdigest()
+    db.add(RefreshToken(
+        user_id=db_token.user_id,
+        token_hash=new_hash,
+        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+    ))
+    db.commit()
+    return TokenResponse(access_token=new_access_token, refresh_token=new_refresh_token)

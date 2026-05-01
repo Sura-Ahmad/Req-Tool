@@ -1,20 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+import json
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.requirements import Requirement
 from app.models.domain import UserSession, Domain
 from app.schemas.usecases import UseCasesRequest, UseCasesResponse, UseCaseItem
 from app.core.config import settings
+from app.core.limiter import limiter
 import anthropic
-import json
-import uuid
 
+logger = logging.getLogger("requirements_ai")
 router = APIRouter(prefix="/usecases", tags=["Use Cases"])
-
 client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
+
 @router.post("/generate", response_model=UseCasesResponse)
-def generate_use_cases(data: UseCasesRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def generate_use_cases(request: Request, data: UseCasesRequest, db: Session = Depends(get_db)):
     session = db.query(UserSession).filter(UserSession.id == data.session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -25,7 +28,7 @@ def generate_use_cases(data: UseCasesRequest, db: Session = Depends(get_db)):
 
     requirements = db.query(Requirement).filter(
         Requirement.session_id == data.session_id,
-        Requirement.type == "functional"
+        Requirement.type == "functional",
     ).all()
 
     if not requirements:
@@ -51,7 +54,7 @@ Return ONLY a valid JSON array, no other text. Example:
     message = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=3000,
-        messages=[{"role": "user", "content": prompt}]
+        messages=[{"role": "user", "content": prompt}],
     )
 
     response_text = message.content[0].text.strip()
@@ -62,7 +65,8 @@ Return ONLY a valid JSON array, no other text. Example:
         elif "```" in response_text:
             response_text = response_text.split("```")[1].split("```")[0].strip()
         use_cases_data = json.loads(response_text)
-    except:
+    except json.JSONDecodeError:
+        logger.warning("Could not parse use-cases JSON response: %s", response_text[:200])
         use_cases_data = []
 
     use_cases = [UseCaseItem(**uc) for uc in use_cases_data]
@@ -70,5 +74,5 @@ Return ONLY a valid JSON array, no other text. Example:
     return UseCasesResponse(
         session_id=data.session_id,
         use_cases=use_cases,
-        total=len(use_cases)
+        total=len(use_cases),
     )

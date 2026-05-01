@@ -18,7 +18,6 @@ class User(Base):
     full_name = Column(String(100), nullable=False)
     role = Column(Enum(UserRole), default=UserRole.user)
     is_active = Column(Boolean, default=True)
-    avatar_url = Column(String(500), nullable=True, default=None)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
 

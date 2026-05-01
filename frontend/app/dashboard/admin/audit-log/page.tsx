@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Activity, ChevronDown, ChevronRight, Search, Filter, ChevronLeft } from 'lucide-react';
 import { getAuditLog, getUsers } from '@/lib/api';
 
@@ -198,9 +198,8 @@ export default function AuditLogPage() {
               </thead>
               <tbody>
                 {data.items.map((entry, idx) => (
-                  <>
+                  <React.Fragment key={entry.id}>
                     <tr
-                      key={entry.id}
                       className="border-t border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer"
                       onClick={() => setExpandedRow(expandedRow === entry.id ? null : entry.id)}
                     >
@@ -250,7 +249,7 @@ export default function AuditLogPage() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>

@@ -15,3 +15,12 @@ class Requirement(Base):
     is_edited = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class RequirementHistory(Base):
+    __tablename__ = "requirement_history"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    requirement_id = Column(UUID(as_uuid=True), ForeignKey("requirements.id"), nullable=False)
+    old_description = Column(Text, nullable=False)
+    changed_at = Column(DateTime, default=datetime.utcnow, nullable=False)

@@ -1,19 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.requirements import Requirement
 from app.models.domain import UserSession, Domain
 from app.schemas.srs import SRSRequest, SRSResponse
 from app.core.config import settings
+from app.core.limiter import limiter
 import anthropic
-import uuid
 
+logger = logging.getLogger("requirements_ai")
 router = APIRouter(prefix="/srs", tags=["SRS"])
-
 client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
+
 @router.post("/generate", response_model=SRSResponse)
-def generate_srs(data: SRSRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def generate_srs(request: Request, data: SRSRequest, db: Session = Depends(get_db)):
     session = db.query(UserSession).filter(UserSession.id == data.session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -22,10 +25,7 @@ def generate_srs(data: SRSRequest, db: Session = Depends(get_db)):
     if not domain:
         raise HTTPException(status_code=404, detail="Domain not found")
 
-    requirements = db.query(Requirement).filter(
-        Requirement.session_id == data.session_id
-    ).all()
-
+    requirements = db.query(Requirement).filter(Requirement.session_id == data.session_id).all()
     if not requirements:
         raise HTTPException(status_code=404, detail="No requirements found")
 
@@ -71,7 +71,7 @@ Make it professional and complete."""
     message = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=4000,
-        messages=[{"role": "user", "content": prompt}]
+        messages=[{"role": "user", "content": prompt}],
     )
 
     srs_content = message.content[0].text
@@ -80,5 +80,5 @@ Make it professional and complete."""
         session_id=data.session_id,
         project_name=data.project_name,
         content=srs_content,
-        format="IEEE"
+        format="IEEE",
     )
