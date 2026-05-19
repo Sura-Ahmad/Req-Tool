@@ -33,10 +33,12 @@ export default function AuthPage() {
       localStorage.setItem('refresh_token', res.data.refresh_token);
       router.push('/dashboard');
     } catch (err: any) {
-      if (err?.response?.data?.detail) {
-        setError(err.response.data.detail);
-      } else if (err?.code === 'ERR_NETWORK' || err?.code === 'ECONNREFUSED') {
+      if (err?.code === 'ERR_NETWORK' || err?.code === 'ECONNREFUSED') {
         setError('Cannot connect to server. Make sure the backend is running.');
+      } else if (err?.response?.status === 422) {
+        setError('Invalid email or password');
+      } else if (typeof err?.response?.data?.detail === 'string') {
+        setError(err.response.data.detail);
       } else {
         setError('Invalid email or password');
       }

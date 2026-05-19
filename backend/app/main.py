@@ -64,3 +64,8 @@ app.include_router(profile.router)
 @app.get("/")
 def root():
     return {"message": "Requirements AI API is running"}
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}

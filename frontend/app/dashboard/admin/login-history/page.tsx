@@ -159,7 +159,7 @@ export default function LoginHistoryPage() {
                         </span>
                       </td>
                       <td className="py-2 text-gray-500 text-xs">
-                        {new Date(a.last_attempt).toLocaleString()}
+                        {new Date(a.last_attempt + 'Z').toLocaleString()}
                       </td>
                     </tr>
                   ))}
@@ -251,7 +251,7 @@ export default function LoginHistoryPage() {
                 {data.items.map(entry => (
                   <tr key={entry.id} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
-                      {new Date(entry.created_at).toLocaleString()}
+                      {new Date(entry.created_at + 'Z').toLocaleString()}
                     </td>
                     <td className="px-4 py-3 font-medium" style={{ color: '#1E2A4A' }}>
                       {entry.email_attempted}

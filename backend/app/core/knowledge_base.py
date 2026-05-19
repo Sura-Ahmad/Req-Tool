@@ -1,6 +1,7 @@
 import os
 import json
 import uuid
+import logging
 import pdfplumber
 from datetime import datetime
 from qdrant_client import QdrantClient
@@ -8,13 +9,29 @@ from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, Fi
 from app.core.config import settings
 from sentence_transformers import SentenceTransformer
 
+logger = logging.getLogger("requirements_ai")
+
 COLLECTION_NAME = "knowledge_base"
 CHUNK_SIZE = 500
 VECTOR_SIZE = 384
 MANIFEST_FILENAME = "manifest.json"
 
-qdrant_client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
-model = SentenceTransformer("all-MiniLM-L6-v2")
+_qdrant_client = None
+_model = None
+
+
+def _get_qdrant_client() -> QdrantClient:
+    global _qdrant_client
+    if _qdrant_client is None:
+        _qdrant_client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
+    return _qdrant_client
+
+
+def _get_model() -> SentenceTransformer:
+    global _model
+    if _model is None:
+        _model = SentenceTransformer("all-MiniLM-L6-v2")
+    return _model
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -45,12 +62,29 @@ def _entry_id(domain: str, country: str) -> str:
 # ── core functions ──────────────────────────────────────────────────────────────
 
 def text_to_embedding(text: str) -> list:
-    return model.encode(text).tolist()
+    return _get_model().encode(text).tolist()
+
+
+def retrieve_context(domain: str, query: str, limit: int = 5) -> str:
+    """Embed query, search Qdrant filtered by domain, return joined text chunks."""
+    try:
+        embedding = text_to_embedding(query)
+        results = _get_qdrant_client().query_points(
+            collection_name=COLLECTION_NAME,
+            query=embedding,
+            query_filter={"must": [{"key": "domain", "match": {"value": domain}}]},
+            limit=limit,
+        ).points
+        return "\n\n".join([r.payload["text"] for r in results]) if results else ""
+    except Exception:
+        logger.exception("Qdrant search error for domain: %s", domain)
+        return ""
+
 
 def ensure_collection():
-    existing = [c.name for c in qdrant_client.get_collections().collections]
+    existing = [c.name for c in _get_qdrant_client().get_collections().collections]
     if COLLECTION_NAME not in existing:
-        qdrant_client.create_collection(
+        _get_qdrant_client().create_collection(
             collection_name=COLLECTION_NAME,
             vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
         )
@@ -100,7 +134,7 @@ def load_pdf(file_path: str, domain: str, country: str = "JO") -> int:
     ]
 
     if points:
-        qdrant_client.upsert(collection_name=COLLECTION_NAME, points=points)
+        _get_qdrant_client().upsert(collection_name=COLLECTION_NAME, points=points)
         print(f"  Done — {len(points)} vectors stored.")
 
     return len(points)
@@ -109,7 +143,7 @@ def load_pdf(file_path: str, domain: str, country: str = "JO") -> int:
 def _delete_from_qdrant(domain: str, country: str):
     """Remove all Qdrant points for a given domain + country."""
     try:
-        qdrant_client.delete(
+        _get_qdrant_client().delete(
             collection_name=COLLECTION_NAME,
             points_selector=Filter(
                 must=[

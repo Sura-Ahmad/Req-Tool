@@ -57,14 +57,17 @@ export default function AuditLogPage() {
   const [filterDateTo, setFilterDateTo] = useState('');
   const [users, setUsers] = useState<{ id: string; full_name: string; email: string }[]>([]);
 
-  const fetchData = async (p = page) => {
+  const fetchData = async (
+    p: number,
+    filters: { userId: string; action: string; dateFrom: string; dateTo: string }
+  ) => {
     setLoading(true);
     try {
       const params: Record<string, unknown> = { page: p, limit: 20 };
-      if (filterUserId) params.user_id = filterUserId;
-      if (filterAction) params.action = filterAction;
-      if (filterDateFrom) params.date_from = filterDateFrom;
-      if (filterDateTo) params.date_to = filterDateTo;
+      if (filters.userId) params.user_id = filters.userId;
+      if (filters.action) params.action = filters.action;
+      if (filters.dateFrom) params.date_from = filters.dateFrom;
+      if (filters.dateTo) params.date_to = filters.dateTo;
       const res = await getAuditLog(params);
       setData(res.data);
     } catch {
@@ -74,26 +77,34 @@ export default function AuditLogPage() {
     }
   };
 
+  const currentFilters = () => ({
+    userId: filterUserId,
+    action: filterAction,
+    dateFrom: filterDateFrom,
+    dateTo: filterDateTo,
+  });
+
   useEffect(() => {
-    getUsers().then(res => setUsers(res.data.filter((u: { role: string }) => u.role === 'admin'))).catch(() => {});
+    getUsers().then(res => setUsers(res.data)).catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetchData(page);
+    fetchData(page, currentFilters());
   }, [page]);
 
   const handleFilter = () => {
     setPage(1);
-    fetchData(1);
+    fetchData(1, currentFilters());
   };
 
   const handleReset = () => {
+    const empty = { userId: '', action: '', dateFrom: '', dateTo: '' };
     setFilterUserId('');
     setFilterAction('');
     setFilterDateFrom('');
     setFilterDateTo('');
     setPage(1);
-    setTimeout(() => fetchData(1), 0);
+    fetchData(1, empty);
   };
 
   return (
@@ -204,7 +215,7 @@ export default function AuditLogPage() {
                       onClick={() => setExpandedRow(expandedRow === entry.id ? null : entry.id)}
                     >
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                        {new Date(entry.created_at).toLocaleString()}
+                        {new Date(entry.created_at + 'Z').toLocaleString()}
                       </td>
                       <td className="px-4 py-3">
                         {entry.user_name ? (

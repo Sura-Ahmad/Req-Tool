@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { LayoutDashboard, FileText, Settings, LogOut, User } from 'lucide-react';
+import { LayoutDashboard, Settings, LogOut, User, History } from 'lucide-react';
 import { getMe } from '@/lib/api';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -22,8 +22,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const navItems = [
-    { label: 'Wizard', icon: LayoutDashboard, href: '/dashboard' },
-    { label: 'Requirements', icon: FileText, href: '/dashboard/requirements' },
+    { label: 'Create Requirements', icon: LayoutDashboard, href: '/dashboard' },
+    { label: 'My Sessions', icon: History, href: '/dashboard/history' },
     { label: 'My Profile', icon: User, href: '/dashboard/profile' },
     ...(isAdmin ? [{ label: 'Admin', icon: Settings, href: '/dashboard/admin' }] : []),
   ];

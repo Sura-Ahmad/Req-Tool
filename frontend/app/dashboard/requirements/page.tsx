@@ -1,71 +1,19 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { generateRequirements, getRequirements, updateRequirement, crossCheck, generateSRS, generateUseCases } from '@/lib/api';
-import { Pencil, Check, X, Download } from 'lucide-react';
+import { generateRequirements, getRequirements, updateRequirement, crossCheck, generateSRS, generateUseCases, getSessionById, deleteRequirement as deleteRequirementAPI, addRequirement } from '@/lib/api';
+import { Check, X, Download, Plus } from 'lucide-react';
 import { generateAndDownloadSRSWord, generateAndDownloadUseCasesWord } from '@/lib/generateSRSWord';
+import RequirementCard from '@/components/RequirementCard';
 
 const TABS = ['Functional Requirements', 'Non-Functional Requirements', 'Use Cases', 'Full SRS'];
 
-interface RequirementCardProps {
-  req: any;
-  editingId: string | null;
-  editText: string;
-  issues: any[];
-  onEdit: (req: any) => void;
-  onSave: (id: string) => void;
-  onCancel: () => void;
-  onEditTextChange: (v: string) => void;
-}
-
-function RequirementCard({ req, editingId, editText, issues, onEdit, onSave, onCancel, onEditTextChange }: RequirementCardProps) {
-  const issue = issues.find(i => i.requirement_id === req.id);
-  const issueColor = issue?.highlight_color ?? null;
-  return (
-    <div className="bg-white rounded-2xl border p-5 mb-3 transition-all"
-      style={{ borderColor: issueColor || '#E5E7EB', borderLeftWidth: issueColor ? '4px' : '1px' }}>
-      <div className="flex justify-between items-start">
-        <div className="flex-1">
-          <span className="font-bold text-gray-800 text-sm">{req.code}</span>
-          {editingId === req.id ? (
-            <div className="mt-2">
-              <textarea className="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none text-sm resize-none" rows={3}
-                value={editText} onChange={e => onEditTextChange(e.target.value)} autoFocus />
-              <div className="flex gap-2 mt-2">
-                <button onClick={() => onSave(req.id)} className="flex items-center gap-1 px-3 py-1 rounded-full text-xs text-white" style={{ background: '#4CAF50' }}>
-                  <Check size={12} /> Save
-                </button>
-                <button onClick={onCancel} className="flex items-center gap-1 px-3 py-1 rounded-full text-xs text-white" style={{ background: '#9CA3AF' }}>
-                  <X size={12} /> Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <p className="text-gray-600 text-sm mt-1">{req.description}</p>
-          )}
-        </div>
-        {editingId !== req.id && (
-          <button onClick={() => onEdit(req)} className="ml-3 text-gray-400 hover:text-gray-600">
-            <Pencil size={16} />
-          </button>
-        )}
-      </div>
-      {issue && (
-        <div className="mt-2">
-          <div className="text-xs px-2 py-1 rounded-full inline-block text-white mb-2" style={{ background: issueColor }}>
-            {issue.issue_type}
-          </div>
-          {issue.issue_detail && (
-            <p className="text-xs text-gray-600 mt-1"><span className="font-medium">Detail:</span> {issue.issue_detail}</p>
-          )}
-          {issue.conflict_with && (
-            <p className="text-xs text-gray-500 mt-1"><span className="font-medium">Conflicts with:</span> {issue.conflict_with}</p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+const ROLE_LABELS: Record<string, string> = {
+  product_owner: 'Product Owner',
+  business_analyst: 'Business Analyst',
+  developer: 'Developer',
+  stakeholder: 'Stakeholder',
+};
 
 export default function RequirementsPage() {
   const searchParams = useSearchParams();
@@ -85,44 +33,112 @@ export default function RequirementsPage() {
   const [editText, setEditText] = useState('');
   const [issues, setIssues] = useState<any[]>([]);
   const [crossChecking, setCrossChecking] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [alreadyGenerated, setAlreadyGenerated] = useState(false);
   const [error, setError] = useState('');
+  const [editError, setEditError] = useState('');
+  const [sessionInfo, setSessionInfo] = useState<any>(null);
+  const [projectName, setProjectName] = useState('My Project');
+  const [addingType, setAddingType] = useState<'functional' | 'non_functional' | null>(null);
+  const [addText, setAddText] = useState('');
+  const [addError, setAddError] = useState('');
+  const [addingReq, setAddingReq] = useState(false);
 
-  const hasGenerated = useRef(false);
+  const initialized = useRef(false);
 
   useEffect(() => {
-    if (!sessionId) {
-      router.replace('/dashboard');
-      return;
-    }
-    if (!hasGenerated.current) {
-      hasGenerated.current = true;
-      generateReqs();
-    }
+    if (!sessionId) { router.replace('/dashboard'); return; }
+    if (initialized.current) return;
+    initialized.current = true;
+    loadOrGenerate();
+    getSessionById(sessionId).then(res => setSessionInfo(res.data)).catch(() => {});
   }, [sessionId]);
 
-  const generateReqs = async () => {
+  const loadOrGenerate = async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await generateRequirements(sessionId, documentText);
-      setFunctional(res.data.functional);
-      setNonFunctional(res.data.non_functional);
+      const existing = await getRequirements(sessionId);
+      const { functional: fn, non_functional: nfn } = existing.data;
+      if (fn.length > 0 || nfn.length > 0) {
+        setFunctional(fn);
+        setNonFunctional(nfn);
+        setAlreadyGenerated(true);
+      } else {
+        const res = await generateRequirements(sessionId, documentText);
+        setFunctional(res.data.functional);
+        setNonFunctional(res.data.non_functional);
+        setAlreadyGenerated(true);
+      }
     } catch (e: any) {
-      const errorMsg = e.response?.data?.detail || 'Error generating requirements';
-      setError(errorMsg);
+      setError(e.response?.data?.detail || 'Error loading requirements');
     } finally { setLoading(false); }
   };
 
   const handleEdit = (req: any) => {
     setEditingId(req.id);
     setEditText(req.description);
+    setEditError('');
+    setConfirmDeleteId(null);
   };
 
   const handleSaveEdit = async (id: string) => {
-    await updateRequirement(id, editText);
-    setFunctional(functional.map(r => r.id === id ? { ...r, description: editText } : r));
-    setNonFunctional(nonFunctional.map(r => r.id === id ? { ...r, description: editText } : r));
+    if (!editText.trim()) { setEditError('Description cannot be empty'); return; }
+    setSavingId(id);
+    setEditError('');
+    try {
+      await updateRequirement(id, editText);
+      setFunctional(prev => prev.map(r => r.id === id ? { ...r, description: editText } : r));
+      setNonFunctional(prev => prev.map(r => r.id === id ? { ...r, description: editText } : r));
+      setEditingId(null);
+    } catch (e: any) {
+      setEditError(e?.response?.data?.detail ?? 'Failed to save. Please try again.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleDelete = (id: string) => {
     setEditingId(null);
+    setEditError('');
+    setConfirmDeleteId(id);
+  };
+
+  const handleConfirmDelete = async (id: string) => {
+    setConfirmDeleteId(null);
+    setDeletingId(id);
+    try {
+      await deleteRequirementAPI(id);
+      setFunctional(prev => prev.filter(r => r.id !== id));
+      setNonFunctional(prev => prev.filter(r => r.id !== id));
+    } catch {
+      // silently ignore
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleAddRequirement = async () => {
+    if (!addText.trim()) { setAddError('Description cannot be empty'); return; }
+    if (!addingType) return;
+    setAddingReq(true);
+    setAddError('');
+    try {
+      const res = await addRequirement(sessionId, addingType, addText);
+      if (addingType === 'functional') {
+        setFunctional(prev => [...prev, res.data]);
+      } else {
+        setNonFunctional(prev => [...prev, res.data]);
+      }
+      setAddingType(null);
+      setAddText('');
+    } catch (e: any) {
+      setAddError(e?.response?.data?.detail ?? 'Failed to add requirement.');
+    } finally {
+      setAddingReq(false);
+    }
   };
 
   const handleCrossCheck = async () => {
@@ -145,56 +161,86 @@ export default function RequirementsPage() {
   const handleGenerateSRS = async () => {
     setGeneratingSRS(true);
     try {
-      const res = await generateSRS(sessionId, 'My Project');
+      const res = await generateSRS(sessionId, projectName || 'My Project');
       setSrs(res.data.content);
       setTab(3);
     } finally { setGeneratingSRS(false); }
   };
 
   const handleDownloadWord = () =>
-    generateAndDownloadSRSWord(srs, functional, nonFunctional, 'My Project');
+    generateAndDownloadSRSWord(srs, functional, nonFunctional, projectName || 'My Project');
 
   const handleDownloadUseCasesWord = () =>
-    generateAndDownloadUseCasesWord(useCases, 'My Project');
+    generateAndDownloadUseCasesWord(useCases, projectName || 'My Project');
 
+  const fmt = (iso: string | null) =>
+    iso ? new Date(iso + 'Z').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+
+  const cardProps = {
+    editingId, editText, editError, savingId, deletingId, confirmDeleteId, issues,
+    onEdit: handleEdit,
+    onSave: handleSaveEdit,
+    onCancel: () => { setEditingId(null); setEditError(''); },
+    onEditTextChange: setEditText,
+    onDelete: handleDelete,
+    onConfirmDelete: handleConfirmDelete,
+    onCancelDelete: () => setConfirmDeleteId(null),
+  };
 
   return (
     <div className="flex h-screen">
       {/* Left Sidebar */}
-      <div className="w-64 bg-white border-r border-gray-100 p-6 flex flex-col gap-6">
+      <div className="w-64 bg-white border-r border-gray-100 p-6 flex flex-col gap-6 overflow-y-auto">
         <div>
           <h3 className="font-semibold text-gray-800 mb-3">Session Info</h3>
           <div className="flex flex-col gap-2 text-sm">
-            <div><span className="text-gray-400">Domain:</span><p className="font-medium">Health</p></div>
-            <div><span className="text-gray-400">Role:</span><p className="font-medium">Business Analyst</p></div>
-            <div><span className="text-gray-400">Country:</span><p className="font-medium">Jordan</p></div>
-            <div><span className="text-gray-400">Created:</span><p className="font-medium">{new Date().toLocaleDateString()}</p></div>
+            <div><span className="text-gray-400">Domain:</span><p className="font-medium">{sessionInfo?.domain_name ?? '—'}</p></div>
+            <div><span className="text-gray-400">Role:</span><p className="font-medium">{ROLE_LABELS[sessionInfo?.role] || sessionInfo?.role || '—'}</p></div>
+            <div><span className="text-gray-400">Country:</span><p className="font-medium">{sessionInfo?.country ?? '—'}</p></div>
+            <div><span className="text-gray-400">Created:</span><p className="font-medium">{fmt(sessionInfo?.created_at ?? null)}</p></div>
           </div>
         </div>
 
-        <button onClick={handleCrossCheck} disabled={crossChecking}
-          className="w-full py-3 rounded-xl text-white font-medium text-sm transition-all hover:opacity-90"
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Project Name</label>
+          <input
+            type="text"
+            value={projectName}
+            onChange={e => setProjectName(e.target.value)}
+            placeholder="My Project"
+            className="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-sm focus:outline-none focus:border-blue-300"
+          />
+        </div>
+
+        {alreadyGenerated && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium" style={{ background: '#4CAF5018', color: '#4CAF50' }}>
+            <span>✓</span> Requirements generated
+          </div>
+        )}
+
+        <button onClick={handleCrossCheck} disabled={crossChecking || !alreadyGenerated}
+          className="w-full py-3 rounded-xl text-white font-medium text-sm transition-all hover:opacity-90 disabled:opacity-40"
           style={{ background: '#FF6B6B' }}>
           {crossChecking ? 'Checking...' : 'Run Cross-Check'}
         </button>
 
         {issues.length > 0 && (
-  <div className="text-xs">
-    <p className="font-medium text-gray-700 mb-2">Legend:</p>
-    {[
-      { color: '#FFA500', label: 'Ambiguity' },
-      { color: '#FF6B6B', label: 'Duplicate' },
-      { color: '#9B59B6', label: 'Inconsistency' },
-      { color: '#FF0000', label: 'Conflict' },
-      { color: '#3498DB', label: 'Unsupported' }
-    ].map(i => (
-      <div key={i.label} className="flex items-center gap-2 mb-1">
-        <div className="w-3 h-3 rounded-full" style={{ background: i.color }} />
-        <span className="text-gray-600">{i.label}</span>
-      </div>
-    ))}
-  </div>
-)}
+          <div className="text-xs">
+            <p className="font-medium text-gray-700 mb-2">Legend:</p>
+            {[
+              { color: '#FFA500', label: 'Ambiguity' },
+              { color: '#FF6B6B', label: 'Duplicate' },
+              { color: '#9B59B6', label: 'Inconsistency' },
+              { color: '#FF0000', label: 'Conflict' },
+              { color: '#3498DB', label: 'Unsupported' }
+            ].map(i => (
+              <div key={i.label} className="flex items-center gap-2 mb-1">
+                <div className="w-3 h-3 rounded-full" style={{ background: i.color }} />
+                <span className="text-gray-600">{i.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div>
           <p className="font-medium text-gray-700 mb-2 text-sm">Export</p>
@@ -223,7 +269,7 @@ export default function RequirementsPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-100 mb-6">
+        <div className="flex border-b border-gray-100 mb-4">
           {TABS.map((t, i) => (
             <button key={i} onClick={() => setTab(i)}
               className="px-4 py-3 text-sm font-medium transition-all border-b-2"
@@ -242,8 +288,64 @@ export default function RequirementsPage() {
           </div>
         ) : (
           <>
-            {tab === 0 && functional.map(r => <RequirementCard key={r.id} req={r} editingId={editingId} editText={editText} issues={issues} onEdit={handleEdit} onSave={handleSaveEdit} onCancel={() => setEditingId(null)} onEditTextChange={setEditText} />)}
-            {tab === 1 && nonFunctional.map(r => <RequirementCard key={r.id} req={r} editingId={editingId} editText={editText} issues={issues} onEdit={handleEdit} onSave={handleSaveEdit} onCancel={() => setEditingId(null)} onEditTextChange={setEditText} />)}
+            {tab === 0 && (
+              <>
+                {functional.map(r => <RequirementCard key={r.id} req={r} {...cardProps} />)}
+                {addingType === 'functional' ? (
+                  <div className="bg-white rounded-2xl border border-blue-200 p-5 mb-3">
+                    <p className="text-sm font-medium text-gray-700 mb-2">New Functional Requirement</p>
+                    <textarea
+                      className="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none text-sm resize-none" rows={3}
+                      value={addText} onChange={e => setAddText(e.target.value)}
+                      placeholder="Describe the requirement..." autoFocus />
+                    {addError && <p className="text-xs text-red-500 mt-1">{addError}</p>}
+                    <div className="flex gap-2 mt-2">
+                      <button onClick={handleAddRequirement} disabled={addingReq} className="flex items-center gap-1 px-3 py-1 rounded-full text-xs text-white" style={{ background: '#4CAF50' }}>
+                        <Check size={12} /> {addingReq ? 'Adding...' : 'Add'}
+                      </button>
+                      <button onClick={() => { setAddingType(null); setAddText(''); setAddError(''); }} disabled={addingReq} className="flex items-center gap-1 px-3 py-1 rounded-full text-xs text-white" style={{ background: '#9CA3AF' }}>
+                        <X size={12} /> Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setAddingType('functional'); setAddText(''); setAddError(''); setEditingId(null); }}
+                    className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-600 mt-2 transition-all">
+                    <Plus size={16} /> Add Requirement
+                  </button>
+                )}
+              </>
+            )}
+            {tab === 1 && (
+              <>
+                {nonFunctional.map(r => <RequirementCard key={r.id} req={r} {...cardProps} />)}
+                {addingType === 'non_functional' ? (
+                  <div className="bg-white rounded-2xl border border-blue-200 p-5 mb-3">
+                    <p className="text-sm font-medium text-gray-700 mb-2">New Non-Functional Requirement</p>
+                    <textarea
+                      className="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none text-sm resize-none" rows={3}
+                      value={addText} onChange={e => setAddText(e.target.value)}
+                      placeholder="Describe the requirement..." autoFocus />
+                    {addError && <p className="text-xs text-red-500 mt-1">{addError}</p>}
+                    <div className="flex gap-2 mt-2">
+                      <button onClick={handleAddRequirement} disabled={addingReq} className="flex items-center gap-1 px-3 py-1 rounded-full text-xs text-white" style={{ background: '#4CAF50' }}>
+                        <Check size={12} /> {addingReq ? 'Adding...' : 'Add'}
+                      </button>
+                      <button onClick={() => { setAddingType(null); setAddText(''); setAddError(''); }} disabled={addingReq} className="flex items-center gap-1 px-3 py-1 rounded-full text-xs text-white" style={{ background: '#9CA3AF' }}>
+                        <X size={12} /> Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setAddingType('non_functional'); setAddText(''); setAddError(''); setEditingId(null); }}
+                    className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-600 mt-2 transition-all">
+                    <Plus size={16} /> Add Requirement
+                  </button>
+                )}
+              </>
+            )}
             {tab === 2 && (
               useCases.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">
@@ -288,7 +390,7 @@ export default function RequirementsPage() {
                 </div>
               ) : (
                 <div className="text-center py-16 text-gray-400">
-                  <p>Click "Download SRS" to generate the SRS document</p>
+                  <p>Click "Generate SRS" to generate the SRS document</p>
                 </div>
               )
             )}

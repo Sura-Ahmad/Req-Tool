@@ -38,7 +38,7 @@ export default function UsersPage() {
   };
 
   const fmt = (iso: string | null) =>
-    iso ? new Date(iso).toLocaleDateString() : '—';
+    iso ? new Date(iso + 'Z').toLocaleDateString() : '—';
 
   return (
     <>

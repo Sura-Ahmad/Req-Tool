@@ -1,10 +1,12 @@
-import logging
+﻿import logging
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from app.database import get_db
+from pydantic import BaseModel
+from app.core.database import get_db
 from app.models.requirements import Requirement, RequirementHistory
-from app.models.domain import UserSession, Domain, Question
+from app.models.domain import UserSession, Domain
+from app.services.requirement_service import get_questions_for_answers
 from app.schemas.requirements import (
     GenerateRequirementsRequest, RequirementsResponse, RequirementItem,
     ClassifiedRequirementsResponse, UpdateRequirementRequest, UpdateRequirementResponse,
@@ -30,13 +32,7 @@ def generate(request: Request, data: GenerateRequirementsRequest, db: Session = 
         raise HTTPException(status_code=404, detail="Domain not found")
 
     raw_answers = json.loads(session.answers) if session.answers else []
-
-    questions_map = {}
-    for a in raw_answers:
-        q = db.query(Question).filter(Question.id == a.get("question_id")).first()
-        if q:
-            questions_map[a.get("question_id")] = q.question_text
-
+    questions_map = get_questions_for_answers(raw_answers, db)
     answers = [
         {"question": questions_map.get(a.get("question_id"), ""), "answer": a.get("answer", "")}
         for a in raw_answers
@@ -47,6 +43,7 @@ def generate(request: Request, data: GenerateRequirementsRequest, db: Session = 
         role=session.role,
         answers=answers,
         document_text=data.document_text or "",
+        country=session.country or "Jordan",
     )
 
     if result.get("error"):
@@ -150,7 +147,6 @@ def update_requirement(requirement_id: str, data: UpdateRequirementRequest, db: 
     if not requirement:
         raise HTTPException(status_code=404, detail="Requirement not found")
 
-    # Save old version to history before overwriting
     history = RequirementHistory(
         requirement_id=requirement.id,
         old_description=requirement.description,
@@ -163,3 +159,52 @@ def update_requirement(requirement_id: str, data: UpdateRequirementRequest, db: 
     db.commit()
     db.refresh(requirement)
     return requirement
+
+
+@router.delete("/{requirement_id}")
+def delete_requirement(requirement_id: str, db: Session = Depends(get_db)):
+    requirement = db.query(Requirement).filter(Requirement.id == requirement_id).first()
+    if not requirement:
+        raise HTTPException(status_code=404, detail="Requirement not found")
+    db.delete(requirement)
+    db.commit()
+    return {"message": "Deleted"}
+
+
+class AddRequirementRequest(BaseModel):
+    session_id: str
+    type: str
+    description: str
+
+
+@router.post("/add")
+def add_requirement(data: AddRequirementRequest, db: Session = Depends(get_db)):
+    session = db.query(UserSession).filter(UserSession.id == data.session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if data.type not in ("functional", "non_functional"):
+        raise HTTPException(status_code=400, detail="type must be 'functional' or 'non_functional'")
+
+    prefix = "FR" if data.type == "functional" else "NFR"
+    existing = db.query(Requirement).filter(
+        Requirement.session_id == session.id,
+        Requirement.type == data.type,
+    ).all()
+    next_num = len(existing) + 1
+    code = f"{prefix}-{next_num}"
+    while db.query(Requirement).filter(
+        Requirement.session_id == session.id, Requirement.code == code
+    ).first():
+        next_num += 1
+        code = f"{prefix}-{next_num}"
+
+    req = Requirement(
+        session_id=session.id,
+        code=code,
+        description=data.description.strip(),
+        type=data.type,
+    )
+    db.add(req)
+    db.commit()
+    db.refresh(req)
+    return {"id": str(req.id), "code": req.code, "description": req.description, "type": req.type}

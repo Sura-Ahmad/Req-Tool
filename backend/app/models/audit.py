@@ -1,6 +1,7 @@
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import UUID, JSON
-from app.database import Base
+from sqlalchemy.orm import relationship
+from app.core.database import Base
 import uuid
 from datetime import datetime
 
@@ -16,6 +17,8 @@ class AuditLog(Base):
     details = Column(JSON, nullable=True)
     ip_address = Column(String(45), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="audit_logs")
 
     __table_args__ = (
         Index("ix_audit_logs_user_id", "user_id"),

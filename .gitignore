@@ -1,0 +1,29 @@
+# Environment files — never commit real credentials
+backend/.env
+frontend/.env.local
+frontend/.env*.local
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+backend/venv/
+backend/.pytest_cache/
+backend/test.db
+*.db
+
+# Node
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Generated docs (use generate_docs.py to recreate)
+project_documentation.html
+project_documentation.pdf
+Project_Analysis_Report.pdf
+
+# OS
+.DS_Store
+Thumbs.db

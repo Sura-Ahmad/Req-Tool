@@ -37,12 +37,11 @@ interface Question {
   id: string;
   domain_id: string;
   question_text: string;
-  question_order: string;
   is_active: boolean;
 }
 
 const emptyDomainForm = { name: '', country: '' };
-const emptyQuestionForm = { question_text: '', question_order: '' };
+const emptyQuestionForm = { question_text: '' };
 
 export default function DomainsPage() {
   const [domains, setDomains] = useState<Domain[]>([]);
@@ -62,6 +61,13 @@ export default function DomainsPage() {
   });
   const [questionForm, setQuestionForm] = useState(emptyQuestionForm);
   const [questionSaving, setQuestionSaving] = useState(false);
+
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState<
+    | { type: 'domain'; id: string }
+    | { type: 'question'; domainId: string; id: string }
+    | null
+  >(null);
 
   useEffect(() => { fetchDomains(); }, []);
 
@@ -120,10 +126,30 @@ export default function DomainsPage() {
     }
   };
 
-  const handleDeleteDomain = async (id: string) => {
-    if (!confirm('Deactivate this domain?')) return;
-    await deleteDomain(id);
-    setDomains(prev => prev.map(d => d.id === id ? { ...d, is_active: false } : d));
+  const handleDeleteDomain = (id: string) => {
+    setDeleteConfirm({ type: 'domain', id });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return;
+    try {
+      if (deleteConfirm.type === 'domain') {
+        await deleteDomain(deleteConfirm.id);
+        setDomains(prev => prev.filter(d => d.id !== deleteConfirm.id));
+        setToast({ type: 'success', message: 'Domain deleted' });
+      } else {
+        await deleteQuestion(deleteConfirm.id);
+        setQuestionsMap(prev => ({
+          ...prev,
+          [deleteConfirm.domainId]: prev[deleteConfirm.domainId].filter(q => q.id !== deleteConfirm.id),
+        }));
+        setToast({ type: 'success', message: 'Question deleted' });
+      }
+    } catch (err: any) {
+      setToast({ type: 'error', message: err?.response?.data?.detail ?? 'Failed to delete' });
+    } finally {
+      setDeleteConfirm(null);
+    }
   };
 
   // ── Question CRUD ────────────────────────────────────────────────────────────
@@ -134,13 +160,13 @@ export default function DomainsPage() {
   };
 
   const openEditQuestion = (domainId: string, q: Question) => {
-    setQuestionForm({ question_text: q.question_text, question_order: q.question_order });
+    setQuestionForm({ question_text: q.question_text });
     setQuestionModal({ open: true, domainId, editing: q });
   };
 
   const saveQuestion = async () => {
-    if (!questionForm.question_text.trim() || !questionForm.question_order.trim()) {
-      setToast({ type: 'error', message: 'Question text and order are required' });
+    if (!questionForm.question_text.trim()) {
+      setToast({ type: 'error', message: 'Question text is required' });
       return;
     }
     setQuestionSaving(true);
@@ -169,13 +195,8 @@ export default function DomainsPage() {
     }
   };
 
-  const handleDeleteQuestion = async (domainId: string, questionId: string) => {
-    if (!confirm('Deactivate this question?')) return;
-    await deleteQuestion(questionId);
-    setQuestionsMap(prev => ({
-      ...prev,
-      [domainId]: prev[domainId].map(q => q.id === questionId ? { ...q, is_active: false } : q),
-    }));
+  const handleDeleteQuestion = (domainId: string, questionId: string) => {
+    setDeleteConfirm({ type: 'question', domainId, id: questionId });
   };
 
   return (
@@ -241,7 +262,6 @@ export default function DomainsPage() {
                     <div className="flex flex-col gap-2">
                       {questionsMap[d.id].map(q => (
                         <div key={q.id} className="bg-white rounded-xl border border-gray-100 px-4 py-3 flex items-start gap-3">
-                          <span className="text-xs font-bold text-gray-400 mt-0.5 w-6 flex-shrink-0">#{q.question_order}</span>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-gray-700">{q.question_text}</p>
                           </div>
@@ -316,6 +336,32 @@ export default function DomainsPage() {
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h2 className="text-lg font-bold mb-2" style={{ color: '#1E2A4A' }}>Confirm Deletion</h2>
+            <p className="text-sm text-gray-500 mb-6">
+              {deleteConfirm.type === 'domain'
+                ? 'This domain and all its questions will be permanently deleted. This cannot be undone.'
+                : 'This question will be permanently deleted. This cannot be undone.'}
+            </p>
+            <div className="flex gap-3">
+              <button onClick={confirmDelete}
+                className="flex-1 py-2.5 rounded-xl text-white font-medium text-sm hover:opacity-90 transition-all"
+                style={{ background: '#FF6B6B' }}>
+                Delete
+              </button>
+              <button onClick={() => setDeleteConfirm(null)}
+                className="flex-1 py-2.5 rounded-xl font-medium text-sm transition-all"
+                style={{ background: '#F3F4F6', color: '#6B7280' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Question Modal */}
       {questionModal.open && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -330,16 +376,7 @@ export default function DomainsPage() {
             </div>
             <div className="flex flex-col gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Order</label>
-                <input
-                  className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-blue-400 text-sm"
-                  placeholder="1"
-                  value={questionForm.question_order}
-                  onChange={e => setQuestionForm(prev => ({ ...prev, question_order: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Question (English)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Question</label>
                 <textarea
                   className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-blue-400 text-sm resize-none"
                   rows={3}

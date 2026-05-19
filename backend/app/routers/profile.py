@@ -1,27 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+﻿from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import Optional
+from sqlalchemy import func
 from pydantic import BaseModel
-from app.database import get_db
+from typing import Optional
+from app.core.database import get_db
 from app.models.user import User
-from app.core.security import verify_token, hash_password, verify_password
+from app.models.domain import UserSession, Domain
+from app.models.requirements import Requirement
+from app.core.security import hash_password, verify_password
+from app.services.auth_service import get_current_user, validate_password_strength
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
-
-
-def get_current_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    token = authorization.split(" ")[1]
-    payload = verify_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    user = db.query(User).filter(User.id == payload["sub"]).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    if not user.is_active:
-        raise HTTPException(status_code=403, detail="Account is disabled")
-    return user
 
 
 def _user_response(user: User) -> dict:
@@ -40,6 +29,61 @@ def _user_response(user: User) -> dict:
 @router.get("/me")
 def get_my_profile(current_user=Depends(get_current_user)):
     return _user_response(current_user)
+
+
+# ── GET /profile/sessions ─────────────────────────────────────────────────────
+
+@router.get("/sessions")
+def get_my_sessions(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    sessions = (
+        db.query(UserSession)
+        .filter(UserSession.user_id == current_user.id)
+        .order_by(UserSession.created_at.desc())
+        .all()
+    )
+    domain_ids = [s.domain_id for s in sessions]
+    session_ids = [s.id for s in sessions]
+
+    domains_map = {d.id: d for d in db.query(Domain).filter(Domain.id.in_(domain_ids)).all()}
+    req_counts = dict(
+        db.query(Requirement.session_id, func.count(Requirement.id))
+        .filter(Requirement.session_id.in_(session_ids))
+        .group_by(Requirement.session_id)
+        .all()
+    )
+
+    return [
+        {
+            "session_id": str(s.id),
+            "domain_name": domains_map[s.domain_id].name if s.domain_id in domains_map else "Unknown",
+            "country": s.country,
+            "role": s.role,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+            "requirements_count": req_counts.get(s.id, 0),
+        }
+        for s in sessions
+    ]
+
+
+# ── GET /profile/sessions/{session_id} ───────────────────────────────────────
+
+@router.get("/sessions/{session_id}")
+def get_session_by_id(session_id: str, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    session = (
+        db.query(UserSession)
+        .filter(UserSession.id == session_id, UserSession.user_id == current_user.id)
+        .first()
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    domain = db.query(Domain).filter(Domain.id == session.domain_id).first()
+    return {
+        "session_id": str(session.id),
+        "domain_name": domain.name if domain else "Unknown",
+        "country": session.country,
+        "role": session.role,
+        "created_at": session.created_at.isoformat() if session.created_at else None,
+    }
 
 
 # ── PUT /profile/update ───────────────────────────────────────────────────────
@@ -77,14 +121,7 @@ def change_password(data: ChangePasswordRequest, current_user=Depends(get_curren
     if not verify_password(data.current_password, current_user.password_hash):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
 
-    pwd = data.new_password
-    if len(pwd) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
-    has_letter = any(c.isalpha() for c in pwd)
-    has_digit = any(c.isdigit() for c in pwd)
-    if not has_letter or not has_digit:
-        raise HTTPException(status_code=400, detail="Password must contain at least 1 letter and 1 number")
-
-    current_user.password_hash = hash_password(pwd)
+    validate_password_strength(data.new_password)
+    current_user.password_hash = hash_password(data.new_password)
     db.commit()
     return {"message": "Password updated successfully"}

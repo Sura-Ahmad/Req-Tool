@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -28,7 +28,7 @@ api.interceptors.response.use(
   res => res,
   async error => {
     const original = error.config;
-    if (error.response?.status !== 401 || original._retry) {
+    if (error.response?.status !== 401 || original._retry || original.url?.includes('/auth/')) {
       return Promise.reject(error);
     }
     original._retry = true;
@@ -123,6 +123,12 @@ export const getRequirements = (session_id: string) =>
 export const updateRequirement = (requirement_id: string, description: string) =>
   api.put(`/requirements/${requirement_id}`, { description });
 
+export const deleteRequirement = (requirement_id: string) =>
+  api.delete(`/requirements/${requirement_id}`);
+
+export const addRequirement = (session_id: string, type: string, description: string) =>
+  api.post('/requirements/add', { session_id, type, description });
+
 // Cross-check
 export const crossCheck = (session_id: string) =>
   api.get(`/crosscheck/${session_id}`);
@@ -150,9 +156,9 @@ export const updateDomain = (domain_id: string, data: { name?: string; country?:
   api.put(`/admin/domains/${domain_id}`, data);
 export const deleteDomain = (domain_id: string) => api.delete(`/admin/domains/${domain_id}`);
 export const getQuestionsAdmin = (domain_id: string) => api.get(`/admin/domains/${domain_id}/questions`);
-export const createQuestion = (domain_id: string, data: { question_text: string; question_order: string }) =>
+export const createQuestion = (domain_id: string, data: { question_text: string }) =>
   api.post(`/admin/domains/${domain_id}/questions`, data);
-export const updateQuestion = (question_id: string, data: { question_text?: string; question_order?: string; is_active?: boolean }) =>
+export const updateQuestion = (question_id: string, data: { question_text?: string; is_active?: boolean }) =>
   api.put(`/admin/questions/${question_id}`, data);
 export const deleteQuestion = (question_id: string) => api.delete(`/admin/questions/${question_id}`);
 
@@ -191,6 +197,8 @@ export const deleteKbFile = (entryId: string) => api.delete(`/admin/knowledge-ba
 
 // Profile
 export const getMyProfile = () => api.get('/profile/me');
+export const getMySessions = () => api.get('/profile/sessions');
+export const getSessionById = (session_id: string) => api.get(`/profile/sessions/${session_id}`);
 export const updateProfile = (data: { full_name?: string; email?: string }) =>
   api.put('/profile/update', data);
 export const changePassword = (current_password: string, new_password: string) =>

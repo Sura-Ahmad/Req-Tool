@@ -22,7 +22,7 @@ export default function SessionsPage() {
   }, []);
 
   const fmt = (iso: string | null) =>
-    iso ? new Date(iso).toLocaleString() : '—';
+    iso ? new Date(iso + 'Z').toLocaleString() : '—';
 
   return (
     <>

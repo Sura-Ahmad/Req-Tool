@@ -1,21 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header, Request
+﻿from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from sqlalchemy.orm import Session
-from typing import Optional
-from app.database import get_db
+from app.core.database import get_db
 from app.models.user import User, RefreshToken, PasswordResetToken
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, RefreshRequest, UserResponse, ForgotPasswordRequest, ResetPasswordRequest
-from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token, verify_token
+from app.core.security import hash_password, verify_password, verify_token
 from app.core.email import send_reset_email
 from app.core.audit import log_login
 from datetime import datetime, timedelta
 from app.core.config import settings
-import hashlib
+from app.services.auth_service import hash_token, create_tokens, store_refresh_token, validate_password_strength, get_current_user
+from app.core.limiter import limiter
 import secrets
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
-def register(data: RegisterRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def register(request: Request, data: RegisterRequest, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == data.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -27,20 +28,14 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
-    access_token = create_access_token({"sub": str(user.id)})
-    refresh_token = create_refresh_token({"sub": str(user.id)})
-    token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
-    db_token = RefreshToken(
-        user_id=user.id,
-        token_hash=token_hash,
-        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    )
-    db.add(db_token)
+    access_token, refresh_token = create_tokens(user.id)
+    store_refresh_token(user.id, refresh_token, db)
     db.commit()
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 @router.post("/login", response_model=TokenResponse)
-def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
     if not user:
         log_login(db, email=data.email, success=False, request=request, failure_reason="user_not_found")
@@ -54,29 +49,22 @@ def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     log_login(db, email=data.email, success=True, user_id=user.id, request=request)
     user.last_login = datetime.utcnow()
     db.commit()
-    access_token = create_access_token({"sub": str(user.id)})
-    refresh_token = create_refresh_token({"sub": str(user.id)})
-    token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
-    db_token = RefreshToken(
-        user_id=user.id,
-        token_hash=token_hash,
-        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    )
-    db.add(db_token)
+    access_token, refresh_token = create_tokens(user.id)
+    store_refresh_token(user.id, refresh_token, db)
     db.commit()
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 @router.post("/logout")
 def logout(data: RefreshRequest, db: Session = Depends(get_db)):
-    token_hash = hashlib.sha256(data.refresh_token.encode()).hexdigest()
-    db_token = db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
+    db_token = db.query(RefreshToken).filter(RefreshToken.token_hash == hash_token(data.refresh_token)).first()
     if db_token:
         db_token.is_revoked = True
         db.commit()
     return {"message": "Logged out successfully"}
 
 @router.post("/forgot-password")
-def forgot_password(data: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+@limiter.limit("3/minute")
+def forgot_password(request: Request, data: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
     if user and user.is_active:
         # Invalidate any existing unused tokens for this user
@@ -87,10 +75,9 @@ def forgot_password(data: ForgotPasswordRequest, background_tasks: BackgroundTas
         db.flush()
 
         token = secrets.token_urlsafe(32)
-        token_hash = hashlib.sha256(token.encode()).hexdigest()
         reset_token = PasswordResetToken(
             user_id=user.id,
-            token_hash=token_hash,
+            token_hash=hash_token(token),
             expires_at=datetime.utcnow() + timedelta(hours=1)
         )
         db.add(reset_token)
@@ -105,12 +92,10 @@ def forgot_password(data: ForgotPasswordRequest, background_tasks: BackgroundTas
 
 @router.post("/reset-password")
 def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
-    if len(data.new_password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    validate_password_strength(data.new_password)
 
-    token_hash = hashlib.sha256(data.token.encode()).hexdigest()
     reset_token = db.query(PasswordResetToken).filter(
-        PasswordResetToken.token_hash == token_hash,
+        PasswordResetToken.token_hash == hash_token(data.token),
         PasswordResetToken.is_used == False,
         PasswordResetToken.expires_at > datetime.utcnow()
     ).first()
@@ -130,16 +115,7 @@ def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/me", response_model=UserResponse)
-def get_me(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    token = authorization.split(" ")[1]
-    payload = verify_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    user = db.query(User).filter(User.id == payload["sub"]).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+def get_me(user: User = Depends(get_current_user)):
     return user
 
 
@@ -148,24 +124,15 @@ def refresh(data: RefreshRequest, db: Session = Depends(get_db)):
     payload = verify_token(data.refresh_token)
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
-    token_hash = hashlib.sha256(data.refresh_token.encode()).hexdigest()
     db_token = db.query(RefreshToken).filter(
-        RefreshToken.token_hash == token_hash,
+        RefreshToken.token_hash == hash_token(data.refresh_token),
         RefreshToken.is_revoked == False
     ).first()
     if not db_token:
         raise HTTPException(status_code=401, detail="Token revoked or not found")
 
-    # Rotation: revoke the old token and issue a brand-new refresh token
     db_token.is_revoked = True
-
-    new_access_token = create_access_token({"sub": payload["sub"]})
-    new_refresh_token = create_refresh_token({"sub": payload["sub"]})
-    new_hash = hashlib.sha256(new_refresh_token.encode()).hexdigest()
-    db.add(RefreshToken(
-        user_id=db_token.user_id,
-        token_hash=new_hash,
-        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
-    ))
+    new_access_token, new_refresh_token = create_tokens(db_token.user_id)
+    store_refresh_token(db_token.user_id, new_refresh_token, db)
     db.commit()
     return TokenResponse(access_token=new_access_token, refresh_token=new_refresh_token)

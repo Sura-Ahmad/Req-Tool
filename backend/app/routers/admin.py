@@ -1,39 +1,24 @@
-import os
+﻿import os
 import shutil
-from fastapi import APIRouter, Depends, HTTPException, Header, Request, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional
 from pydantic import BaseModel
 from datetime import datetime, timedelta
-from app.database import get_db
+from app.core.database import get_db
 from app.models.user import User, UserRole
 from app.models.domain import Domain, Question, UserSession
 from app.models.requirements import Requirement
-from app.knowledge_base_loader import (
+from app.core.knowledge_base import (
     register_and_load, list_kb_files, delete_kb_file, _kb_path
 )
 from app.core.config import settings
 from app.models.audit import AuditLog, LoginHistory
-from app.core.security import verify_token
 from app.core.audit import log_action
+from app.services.auth_service import get_current_admin
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
-
-
-def get_current_admin(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    token = authorization.split(" ")[1]
-    payload = verify_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    user = db.query(User).filter(User.id == payload["sub"]).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    if user.role != UserRole.admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return user
 
 
 @router.get("/stats")
@@ -52,11 +37,14 @@ def get_stats(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
 
 @router.get("/users")
 def get_users(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
+    session_counts = dict(
+        db.query(UserSession.user_id, func.count(UserSession.id))
+        .group_by(UserSession.user_id)
+        .all()
+    )
     users = db.query(User).all()
-    result = []
-    for user in users:
-        sessions_count = db.query(func.count(UserSession.id)).filter(UserSession.user_id == user.id).scalar()
-        result.append({
+    return [
+        {
             "id": str(user.id),
             "full_name": user.full_name,
             "email": user.email,
@@ -64,13 +52,16 @@ def get_users(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
             "is_active": user.is_active,
             "created_at": user.created_at.isoformat() if user.created_at else None,
             "last_login": user.last_login.isoformat() if user.last_login else None,
-            "sessions_count": sessions_count,
-        })
-    return result
+            "sessions_count": session_counts.get(user.id, 0),
+        }
+        for user in users
+    ]
 
 
 @router.put("/users/{user_id}/toggle-active")
 def toggle_user_active(user_id: str, request: Request, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
+    if str(admin.id) == user_id:
+        raise HTTPException(status_code=400, detail="You cannot deactivate your own account")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -90,11 +81,23 @@ def toggle_user_active(user_id: str, request: Request, admin=Depends(get_current
 @router.get("/sessions")
 def get_sessions(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
     sessions = db.query(UserSession).all()
+    user_ids = [s.user_id for s in sessions]
+    domain_ids = [s.domain_id for s in sessions]
+    session_ids = [s.id for s in sessions]
+
+    users_map = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()}
+    domains_map = {d.id: d for d in db.query(Domain).filter(Domain.id.in_(domain_ids)).all()}
+    req_counts = dict(
+        db.query(Requirement.session_id, func.count(Requirement.id))
+        .filter(Requirement.session_id.in_(session_ids))
+        .group_by(Requirement.session_id)
+        .all()
+    )
+
     result = []
     for s in sessions:
-        user = db.query(User).filter(User.id == s.user_id).first()
-        domain = db.query(Domain).filter(Domain.id == s.domain_id).first()
-        req_count = db.query(func.count(Requirement.id)).filter(Requirement.session_id == s.id).scalar()
+        user = users_map.get(s.user_id)
+        domain = domains_map.get(s.domain_id)
         result.append({
             "id": str(s.id),
             "user_name": user.full_name if user else "Unknown",
@@ -103,7 +106,7 @@ def get_sessions(admin=Depends(get_current_admin), db: Session = Depends(get_db)
             "country": s.country,
             "role": s.role,
             "created_at": s.created_at.isoformat() if s.created_at else None,
-            "requirements_count": req_count,
+            "requirements_count": req_counts.get(s.id, 0),
         })
     return result
 
@@ -198,10 +201,15 @@ def update_domain(domain_id: str, request: Request, data: DomainUpdate, admin=De
 
 @router.delete("/domains/{domain_id}")
 def delete_domain(domain_id: str, request: Request, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
+    from app.models.domain import UserSession
     domain = db.query(Domain).filter(Domain.id == domain_id).first()
     if not domain:
         raise HTTPException(status_code=404, detail="Domain not found")
-    domain.is_active = False
+    has_sessions = db.query(UserSession).filter(UserSession.domain_id == domain_id).first()
+    if has_sessions:
+        raise HTTPException(status_code=400, detail="Cannot delete domain with existing sessions. Deactivate it instead.")
+    db.query(Question).filter(Question.domain_id == domain_id).delete()
+    db.delete(domain)
     db.commit()
     log_action(
         db, admin.id,
@@ -211,7 +219,7 @@ def delete_domain(domain_id: str, request: Request, admin=Depends(get_current_ad
         details={"name": domain.name},
         request=request,
     )
-    return {"message": "Domain deactivated"}
+    return {"message": "Domain deleted"}
 
 
 @router.get("/domains/{domain_id}/questions")
@@ -222,8 +230,6 @@ def get_questions(domain_id: str, admin=Depends(get_current_admin), db: Session 
             "id": str(q.id),
             "domain_id": str(q.domain_id),
             "question_text": q.question_text,
-            "question_text_ar": q.question_text_ar,
-            "question_order": q.question_order,
             "is_active": q.is_active,
         }
         for q in questions
@@ -232,8 +238,6 @@ def get_questions(domain_id: str, admin=Depends(get_current_admin), db: Session 
 
 class QuestionCreate(BaseModel):
     question_text: str
-    question_text_ar: str = ""
-    question_order: str
 
 
 @router.post("/domains/{domain_id}/questions")
@@ -241,8 +245,6 @@ def create_question(domain_id: str, request: Request, data: QuestionCreate, admi
     question = Question(
         domain_id=domain_id,
         question_text=data.question_text,
-        question_text_ar=data.question_text_ar,
-        question_order=data.question_order,
     )
     db.add(question)
     db.commit()
@@ -252,23 +254,19 @@ def create_question(domain_id: str, request: Request, data: QuestionCreate, admi
         action="create_question",
         entity_type="question",
         entity_id=str(question.id),
-        details={"domain_id": domain_id, "question_order": data.question_order},
+        details={"domain_id": domain_id},
         request=request,
     )
     return {
         "id": str(question.id),
         "domain_id": str(question.domain_id),
         "question_text": question.question_text,
-        "question_text_ar": question.question_text_ar,
-        "question_order": question.question_order,
         "is_active": question.is_active,
     }
 
 
 class QuestionUpdate(BaseModel):
     question_text: Optional[str] = None
-    question_text_ar: Optional[str] = None
-    question_order: Optional[str] = None
     is_active: Optional[bool] = None
 
 
@@ -281,12 +279,6 @@ def update_question(question_id: str, request: Request, data: QuestionUpdate, ad
     if data.question_text is not None:
         changes["question_text"] = {"old": question.question_text, "new": data.question_text}
         question.question_text = data.question_text
-    if data.question_text_ar is not None:
-        changes["question_text_ar"] = {"old": question.question_text_ar, "new": data.question_text_ar}
-        question.question_text_ar = data.question_text_ar
-    if data.question_order is not None:
-        changes["question_order"] = {"old": question.question_order, "new": data.question_order}
-        question.question_order = data.question_order
     if data.is_active is not None:
         changes["is_active"] = {"old": question.is_active, "new": data.is_active}
         question.is_active = data.is_active
@@ -303,8 +295,6 @@ def update_question(question_id: str, request: Request, data: QuestionUpdate, ad
         "id": str(question.id),
         "domain_id": str(question.domain_id),
         "question_text": question.question_text,
-        "question_text_ar": question.question_text_ar,
-        "question_order": question.question_order,
         "is_active": question.is_active,
     }
 
@@ -314,17 +304,18 @@ def delete_question(question_id: str, request: Request, admin=Depends(get_curren
     question = db.query(Question).filter(Question.id == question_id).first()
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
-    question.is_active = False
+    domain_id = str(question.domain_id)
+    db.delete(question)
     db.commit()
     log_action(
         db, admin.id,
         action="delete_question",
         entity_type="question",
         entity_id=question_id,
-        details={"domain_id": str(question.domain_id)},
+        details={"domain_id": domain_id},
         request=request,
     )
-    return {"message": "Question deactivated"}
+    return {"message": "Question deleted"}
 
 
 # ── Audit Log ──────────────────────────────────────────────────────────────────
@@ -353,9 +344,12 @@ def get_audit_log(
     total = query.count()
     logs = query.order_by(AuditLog.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
 
+    log_user_ids = [e.user_id for e in logs if e.user_id]
+    users_map = {u.id: u for u in db.query(User).filter(User.id.in_(log_user_ids)).all()} if log_user_ids else {}
+
     items = []
     for entry in logs:
-        user = db.query(User).filter(User.id == entry.user_id).first() if entry.user_id else None
+        user = users_map.get(entry.user_id) if entry.user_id else None
         items.append({
             "id": str(entry.id),
             "user_id": str(entry.user_id) if entry.user_id else None,

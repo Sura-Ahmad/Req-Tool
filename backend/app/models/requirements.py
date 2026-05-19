@@ -1,8 +1,10 @@
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID
-from app.database import Base
+from sqlalchemy.orm import relationship
+from app.core.database import Base
 import uuid
 from datetime import datetime
+
 
 class Requirement(Base):
     __tablename__ = "requirements"
@@ -16,6 +18,9 @@ class Requirement(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
+    session = relationship("UserSession", back_populates="requirements")
+    history = relationship("RequirementHistory", back_populates="requirement")
+
 
 class RequirementHistory(Base):
     __tablename__ = "requirement_history"
@@ -24,3 +29,5 @@ class RequirementHistory(Base):
     requirement_id = Column(UUID(as_uuid=True), ForeignKey("requirements.id"), nullable=False)
     old_description = Column(Text, nullable=False)
     changed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    requirement = relationship("Requirement", back_populates="history")

@@ -21,8 +21,6 @@ class QuestionResponse(BaseModel):
     id: UUID
     domain_id: UUID
     question_text: str
-    question_text_ar: str
-    question_order: str
 
 class AnswerItem(BaseModel):
     question_id: UUID
