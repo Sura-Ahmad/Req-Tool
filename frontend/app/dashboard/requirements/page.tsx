@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { generateRequirements, getRequirements, updateRequirement, crossCheck, generateSRS, generateUseCases, getSessionById, deleteRequirement as deleteRequirementAPI, addRequirement } from '@/lib/api';
 import { Check, X, Download, Plus } from 'lucide-react';
@@ -15,7 +15,7 @@ const ROLE_LABELS: Record<string, string> = {
   stakeholder: 'Stakeholder',
 };
 
-export default function RequirementsPage() {
+function RequirementsPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const sessionId = searchParams.get('session_id') || '';
@@ -398,5 +398,13 @@ export default function RequirementsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function RequirementsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-gray-200 rounded-full animate-spin" style={{ borderTopColor: '#FF6B6B' }} /></div>}>
+      <RequirementsPageInner />
+    </Suspense>
   );
 }
