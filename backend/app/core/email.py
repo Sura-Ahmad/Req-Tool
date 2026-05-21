@@ -1,5 +1,6 @@
+import json
 import logging
-import resend
+import urllib.request
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -34,24 +35,36 @@ _HTML_TEMPLATE = """
 
 
 def send_reset_email(to_email: str, full_name: str, reset_link: str) -> None:
-    if not settings.RESEND_API_KEY:
+    if not settings.BREVO_API_KEY:
         logger.warning(
-            "Resend not configured — password reset link for %s: %s",
+            "Brevo not configured — password reset link for %s: %s",
             to_email,
             reset_link,
         )
         return
 
-    resend.api_key = settings.RESEND_API_KEY
     html_body = _HTML_TEMPLATE.format(full_name=full_name, reset_link=reset_link)
+    payload = json.dumps({
+        "sender": {"name": "Requirements Super Tool", "email": settings.SMTP_FROM or "noreply@requirementstool.com"},
+        "to": [{"email": to_email}],
+        "subject": "Reset Your Password — Requirements Super Tool",
+        "htmlContent": html_body,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.brevo.com/v3/smtp/email",
+        data=payload,
+        headers={
+            "accept": "application/json",
+            "api-key": settings.BREVO_API_KEY,
+            "content-type": "application/json",
+        },
+        method="POST",
+    )
 
     try:
-        resend.Emails.send({
-            "from": "Requirements Super Tool <onboarding@resend.dev>",
-            "to": to_email,
-            "subject": "Reset Your Password — Requirements Super Tool",
-            "html": html_body,
-        })
+        with urllib.request.urlopen(req) as response:
+            response.read()
         logger.info("Password reset email sent to %s", to_email)
     except Exception as exc:
         logger.error("Failed to send password reset email to %s: %s", to_email, exc, exc_info=True)
