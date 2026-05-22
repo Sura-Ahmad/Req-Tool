@@ -8,11 +8,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
     getMe().then(res => {
       if (res.data.role === 'admin') setIsAdmin(true);
-    }).catch(() => {});
+      setChecked(true);
+    }).catch(() => router.replace('/auth'));
   }, []);
 
   const handleLogout = () => {
@@ -27,6 +29,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { label: 'My Profile', icon: User, href: '/dashboard/profile' },
     ...(isAdmin ? [{ label: 'Admin', icon: Settings, href: '/dashboard/admin' }] : []),
   ];
+
+  if (!checked) return null;
 
   return (
     <div className="flex min-h-screen">
