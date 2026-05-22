@@ -11,12 +11,12 @@ def seed():
         db.close()
         return
 
-    health = Domain(id=uuid.uuid4(), name="Health", country="JO")
-    education = Domain(id=uuid.uuid4(), name="Education", country="JO")
-    finance = Domain(id=uuid.uuid4(), name="Finance", country="JO")
-    industrial= Domain(id=uuid.uuid4(), name="Industrial", country="JO")
+    health = Domain(id=uuid.uuid4(), name="Health", name_ar="", country="JO")
+    education = Domain(id=uuid.uuid4(), name="Education", name_ar="", country="JO")
+    finance = Domain(id=uuid.uuid4(), name="Finance", name_ar="", country="JO")
+    
 
-    db.add_all([health, education, finance, industrial])
+    db.add_all([health, education, finance])
     db.commit()
 
     health_questions = [
@@ -36,6 +36,8 @@ def seed():
         Question(domain_id=finance.id, question_text="Who are the main users of the system?"),
         Question(domain_id=finance.id, question_text="Does the system need to integrate with existing banking systems?"),
     ]
+
+   
 
     db.add_all(health_questions + education_questions + finance_questions)
     db.commit()
