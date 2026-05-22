@@ -1,0 +1,63 @@
+@startuml State Machine - User Account
+
+title User Account Lifecycle
+
+skinparam stateBorderColor #1E2A4A
+skinparam stateBackgroundColor #F8F9FA
+skinparam stateFontColor #1E2A4A
+skinparam ArrowColor #FF6B6B
+skinparam noteBackgroundColor #FFF5F5
+skinparam noteBorderColor #FF6B6B
+
+[*] --> Active : User registers\nPOST /auth/register\n(is_active = true, role = user)
+
+state Active {
+  Active : is_active = true
+  Active : can login
+  Active : can use all features
+}
+
+state LoggedIn {
+  LoggedIn : holds access_token (15 min)
+  LoggedIn : holds refresh_token (30 days)
+}
+
+state PasswordReset {
+  PasswordReset : reset token created
+  PasswordReset : expires in 1 hour
+  PasswordReset : old tokens invalidated
+}
+
+Active --> LoggedIn : POST /auth/login\n(correct credentials)
+LoggedIn --> Active : POST /auth/logout\n(refresh token revoked)
+LoggedIn --> LoggedIn : POST /auth/refresh\n(token rotation)
+
+Active --> PasswordReset : POST /auth/forgot-password\n(reset email sent)
+LoggedIn --> PasswordReset : POST /auth/forgot-password
+
+PasswordReset --> Active : POST /auth/reset-password\n(valid token + new password)
+PasswordReset --> Active : Token expires after 1 hour\n(no change made)
+
+Active --> Disabled : Admin toggles\nDELETE /admin/users/{id}/toggle\n(is_active = false)
+LoggedIn --> Disabled : Admin disables\nwhile user is logged in
+
+state Disabled {
+  Disabled : is_active = false
+  Disabled : cannot login
+  Disabled : existing tokens rejected
+}
+
+Disabled --> Active : Admin re-enables\n(is_active = true)
+
+note right of LoggedIn
+  Access token: short-lived (15 min)
+  Refresh token: long-lived (30 days)
+  Each refresh rotates both tokens
+end note
+
+note right of Disabled
+  Admin action logged
+  in AuditLog table
+end note
+
+@enduml

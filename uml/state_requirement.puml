@@ -1,0 +1,55 @@
+@startuml State Machine - Requirement
+
+title Requirement Lifecycle
+
+skinparam stateBorderColor #1E2A4A
+skinparam stateBackgroundColor #F8F9FA
+skinparam stateFontColor #1E2A4A
+skinparam ArrowColor #FF6B6B
+skinparam noteBackgroundColor #FFF5F5
+skinparam noteBorderColor #FF6B6B
+
+[*] --> Generated : AI generates requirements\nPOST /requirements/generate
+
+state Generated {
+  Generated : is_edited = false
+  Generated : code = FR-001 or NFR-001
+  Generated : type = functional / non_functional
+}
+
+Generated --> Edited : User edits description\nPUT /requirements/{id}
+Generated --> Deleted : User deletes\nDELETE /requirements/{id}
+
+state Edited {
+  Edited : is_edited = true
+  Edited : old description saved\nin RequirementHistory
+}
+
+Edited --> Edited : User edits again\n(new history entry added)
+Edited --> Deleted : User deletes\nDELETE /requirements/{id}
+
+state ManuallyAdded {
+  ManuallyAdded : is_edited = false
+  ManuallyAdded : created by user\nnot by AI
+}
+
+[*] --> ManuallyAdded : User adds manually\nPOST /requirements/add
+
+ManuallyAdded --> Edited : User edits\nPUT /requirements/{id}
+ManuallyAdded --> Deleted : User deletes\nDELETE /requirements/{id}
+
+Deleted --> [*]
+
+note right of Edited
+  Every edit saves a
+  RequirementHistory record
+  with the old description
+  and changed_at timestamp
+end note
+
+note right of Deleted
+  Hard delete from DB
+  No recovery possible
+end note
+
+@enduml

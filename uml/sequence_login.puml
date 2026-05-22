@@ -1,0 +1,67 @@
+@startuml Sequence Diagram - Login Flow
+
+title User Registration & Login Flow
+
+skinparam sequenceArrowThickness 2
+skinparam sequenceParticipantBorderColor #1E2A4A
+skinparam sequenceParticipantBackgroundColor #F8F9FA
+skinparam sequenceLifeLineBorderColor #1E2A4A
+skinparam sequenceArrowColor #FF6B6B
+skinparam noteBorderColor #FF6B6B
+skinparam noteBackgroundColor #FFF5F5
+
+actor User
+participant "Frontend\n(Next.js)" as FE
+participant "AuthRouter" as AR
+participant "AuthService" as AS
+participant "SecurityCore" as SC
+participant "AuditCore" as AC
+database "PostgreSQL" as DB
+
+== Registration ==
+
+User -> FE: Fill register form\n(name, email, password)
+FE -> AR: POST /auth/register
+AR -> DB: Check email exists
+DB --> AR: Not found
+AR -> SC: hash_password(password)
+SC --> AR: password_hash
+AR -> DB: INSERT User
+DB --> AR: User saved
+AR -> AS: create_tokens(user_id)
+AS -> SC: create_access_token()
+AS -> SC: create_refresh_token()
+SC --> AS: tokens
+AS -> DB: INSERT RefreshToken (hashed)
+AR --> FE: { access_token, refresh_token }
+FE --> User: Redirect to dashboard
+
+== Login ==
+
+User -> FE: Enter email + password
+FE -> AR: POST /auth/login
+AR -> DB: SELECT User WHERE email=?
+DB --> AR: User record
+AR -> SC: verify_password(plain, hash)
+SC --> AR: valid ✓
+AR -> AC: log_login(success=True)
+AC -> DB: INSERT LoginHistory
+AR -> AS: create_tokens(user_id)
+AS -> DB: INSERT RefreshToken
+AR --> FE: { access_token, refresh_token }
+FE -> FE: Store tokens in localStorage
+FE --> User: Redirect to dashboard
+
+== Token Refresh ==
+
+FE -> AR: POST /auth/refresh\n{ refresh_token }
+AR -> SC: verify_token(token)
+SC --> AR: payload valid
+AR -> DB: SELECT RefreshToken WHERE hash=?\nAND is_revoked=false
+DB --> AR: Token found
+AR -> DB: UPDATE is_revoked=true (old token)
+AR -> AS: create_tokens(user_id)
+AS -> DB: INSERT new RefreshToken
+AR --> FE: { new_access_token, new_refresh_token }
+
+@enduml

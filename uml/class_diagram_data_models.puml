@@ -1,0 +1,134 @@
+@startuml Class Diagram - Data Models
+
+title Data Models & Relationships
+
+skinparam classAttributeIconSize 0
+skinparam classBorderColor #1E2A4A
+skinparam classBackgroundColor #F8F9FA
+skinparam classFontColor #1E2A4A
+skinparam ArrowColor #FF6B6B
+skinparam linetype ortho
+
+enum UserRole {
+  user
+  admin
+}
+
+enum ProjectRole {
+  product_owner
+  business_analyst
+  developer
+  stakeholder
+}
+
+class User {
+  +id: UUID
+  +email: String
+  +password_hash: String
+  +full_name: String
+  +role: UserRole
+  +is_active: Boolean
+  +created_at: DateTime
+  +last_login: DateTime
+}
+
+class RefreshToken {
+  +id: UUID
+  +user_id: UUID <<FK>>
+  +token_hash: String
+  +expires_at: DateTime
+  +is_revoked: Boolean
+}
+
+class PasswordResetToken {
+  +id: UUID
+  +user_id: UUID <<FK>>
+  +token_hash: String
+  +expires_at: DateTime
+  +is_used: Boolean
+  +created_at: DateTime
+}
+
+class Domain {
+  +id: UUID
+  +name: String
+  +name_ar: String
+  +country: String
+  +is_active: Boolean
+  +created_at: DateTime
+}
+
+class Question {
+  +id: UUID
+  +domain_id: UUID <<FK>>
+  +question_text: Text
+  +is_active: Boolean
+}
+
+class UserSession {
+  +id: UUID
+  +user_id: UUID <<FK>>
+  +domain_id: UUID <<FK>>
+  +country: String
+  +role: String
+  +answers: Text
+  +created_at: DateTime
+}
+
+class Requirement {
+  +id: UUID
+  +session_id: UUID <<FK>>
+  +code: String
+  +description: Text
+  +type: String
+  +is_edited: Boolean
+  +created_at: DateTime
+  +updated_at: DateTime
+}
+
+class RequirementHistory {
+  +id: UUID
+  +requirement_id: UUID <<FK>>
+  +old_description: Text
+  +changed_at: DateTime
+}
+
+class AuditLog {
+  +id: UUID
+  +user_id: UUID <<FK>>
+  +action: String
+  +entity_type: String
+  +entity_id: String
+  +details: JSON
+  +ip_address: String
+  +created_at: DateTime
+}
+
+class LoginHistory {
+  +id: UUID
+  +user_id: UUID <<FK>>
+  +email_attempted: String
+  +success: Boolean
+  +ip_address: String
+  +user_agent: String
+  +failure_reason: String
+  +created_at: DateTime
+}
+
+User "1" --o{ "many" RefreshToken : has
+User "1" --o{ "many" PasswordResetToken : has
+User "1" --o{ "many" UserSession : starts
+User "1" --o{ "many" AuditLog : generates
+User "1" --o{ "many" LoginHistory : tracked in
+
+Domain "1" --o{ "many" Question : contains
+Domain "1" --o{ "many" UserSession : used in
+
+UserSession "1" --o{ "many" Requirement : produces
+
+Requirement "1" --o{ "many" RequirementHistory : tracks
+
+User ..> UserRole : uses
+UserSession ..> ProjectRole : uses
+
+@enduml
