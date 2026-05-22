@@ -3,6 +3,7 @@ import uuid
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -16,7 +17,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger("requirements_ai")
 
-app = FastAPI(title="Requirements AI", version="1.0.0")
+app = FastAPI(
+    title="Requirements AI",
+    version="1.0.0",
+    openapi_tags=[],
+)
+
+security = HTTPBearer(auto_error=False)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -59,6 +66,23 @@ app.include_router(srs.router)
 app.include_router(usecases.router)
 app.include_router(admin.router)
 app.include_router(profile.router)
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    from fastapi.openapi.utils import get_openapi
+    schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
+    schema["components"]["securitySchemes"] = {
+        "BearerAuth": {"type": "http", "scheme": "bearer"}
+    }
+    for path in schema["paths"].values():
+        for operation in path.values():
+            operation["security"] = [{"BearerAuth": []}]
+    app.openapi_schema = schema
+    return schema
+
+app.openapi = custom_openapi
 
 
 @app.get("/")

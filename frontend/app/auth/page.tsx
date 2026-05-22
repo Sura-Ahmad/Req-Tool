@@ -35,6 +35,8 @@ export default function AuthPage() {
     } catch (err: any) {
       if (err?.code === 'ERR_NETWORK' || err?.code === 'ECONNREFUSED') {
         setError('Cannot connect to server. Make sure the backend is running.');
+      } else if (err?.response?.status === 429) {
+        setError('Too many attempts. Please wait a minute and try again.');
       } else if (err?.response?.status === 422) {
         setError('Invalid email or password');
       } else if (typeof err?.response?.data?.detail === 'string') {
@@ -55,8 +57,13 @@ export default function AuthPage() {
       localStorage.setItem('refresh_token', res.data.refresh_token);
       router.push('/dashboard');
     } catch (err: any) {
-      if (err?.response?.data?.detail) {
-        setError(err.response.data.detail);
+      const detail = err?.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        setError('Invalid email format');
+      } else if (err?.response?.status === 429) {
+        setError('Too many attempts. Please wait a minute and try again.');
+      } else if (typeof detail === 'string') {
+        setError(detail);
       } else if (err?.code === 'ERR_NETWORK' || err?.code === 'ECONNREFUSED') {
         setError('Cannot connect to server. Make sure the backend is running.');
       } else {
@@ -72,8 +79,12 @@ export default function AuthPage() {
       await forgotPassword(email);
       setSuccess('If this email is registered, you will receive a password reset link shortly.');
       setEmail('');
-    } catch {
-      setError('Something went wrong. Please try again.');
+    } catch (err: any) {
+      if (err?.response?.status === 429) {
+        setError('Too many attempts. Please wait a minute and try again.');
+      } else {
+        setError('Something went wrong. Please try again.');
+      }
     } finally { setLoading(false); }
   };
 

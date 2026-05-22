@@ -135,6 +135,9 @@ class DomainCreate(BaseModel):
 
 @router.post("/domains")
 def create_domain(request: Request, data: DomainCreate, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
+    existing = db.query(Domain).filter(Domain.name == data.name, Domain.country == data.country).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Domain '{data.name}' already exists for country '{data.country}'.")
     domain = Domain(name=data.name, name_ar=data.name_ar, country=data.country)
     db.add(domain)
     db.commit()
@@ -485,6 +488,14 @@ async def upload_kb_file(
     if not domain or not country:
         raise HTTPException(status_code=400, detail="domain and country are required.")
 
+    valid_country = db.query(Domain).filter(Domain.country == country).first()
+    if not valid_country:
+        raise HTTPException(status_code=400, detail=f"Country code '{country}' does not match any existing domain. Add a domain for this country first.")
+
+    valid_domain = db.query(Domain).filter(Domain.country == country, Domain.name == domain).first()
+    if not valid_domain:
+        raise HTTPException(status_code=400, detail=f"Domain '{domain}' does not exist for country '{country}'.")
+
     # Build a stable filename so re-uploading the same domain overwrites the old file
     safe_domain = domain.lower().replace(" ", "_")
     filename = f"{safe_domain}_{country.lower()}.pdf"
@@ -535,7 +546,7 @@ def remove_kb_file(entry_id: str, request: Request, admin=Depends(get_current_ad
         action="delete_kb_file",
         entity_type="knowledge_base",
         entity_id=entry_id,
-        details={},
+        details={"deleted_entry": entry_id},
         request=request,
     )
     return {"message": f"Knowledge-base entry '{entry_id}' deleted successfully."}

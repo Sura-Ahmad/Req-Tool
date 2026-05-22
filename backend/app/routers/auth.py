@@ -17,6 +17,11 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 @router.post("/register", response_model=TokenResponse, status_code=201)
 @limiter.limit("5/minute")
 def register(request: Request, data: RegisterRequest, db: Session = Depends(get_db)):
+    ALLOWED_DOMAINS = {"cit.just.edu.jo", "just.edu.jo", "outlook.com", "yahoo.com", "gmail.com"}
+    email_domain = data.email.split("@")[-1].lower()
+    if email_domain not in ALLOWED_DOMAINS:
+        raise HTTPException(status_code=400, detail="Registration is only allowed for authorized email domains")
+    validate_password_strength(data.password)
     existing = db.query(User).filter(User.email == data.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")

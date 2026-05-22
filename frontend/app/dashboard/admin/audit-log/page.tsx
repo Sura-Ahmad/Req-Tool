@@ -85,7 +85,7 @@ export default function AuditLogPage() {
   });
 
   useEffect(() => {
-    getUsers().then(res => setUsers(res.data)).catch(() => {});
+    getUsers().then(res => setUsers(res.data.filter((u: any) => u.role === 'admin'))).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -131,7 +131,7 @@ export default function AuditLogPage() {
             onChange={e => setFilterUserId(e.target.value)}
             className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-200"
           >
-            <option value="">All Users</option>
+            <option value="">All Admins</option>
             {users.map(u => (
               <option key={u.id} value={u.id}>{u.full_name} ({u.email})</option>
             ))}
@@ -241,7 +241,7 @@ export default function AuditLogPage() {
                       </td>
                       <td className="px-4 py-3 text-gray-500 font-mono text-xs">{entry.ip_address || '—'}</td>
                       <td className="px-4 py-3">
-                        {entry.details ? (
+                        {entry.details && Object.keys(entry.details).length > 0 ? (
                           <span className="flex items-center gap-1 text-xs" style={{ color: '#FF6B6B' }}>
                             {expandedRow === entry.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                             View
@@ -251,7 +251,7 @@ export default function AuditLogPage() {
                         )}
                       </td>
                     </tr>
-                    {expandedRow === entry.id && entry.details && (
+                    {expandedRow === entry.id && entry.details && Object.keys(entry.details).length > 0 && (
                       <tr key={`${entry.id}-detail`} className="border-t border-gray-50">
                         <td colSpan={7} className="px-4 py-3" style={{ background: '#F9FAFB' }}>
                           <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono bg-white rounded-xl p-3 border border-gray-100 overflow-auto max-h-48">
