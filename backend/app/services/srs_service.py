@@ -5,8 +5,11 @@ from app.models.domain import UserSession, Domain
 from app.services.ai_service import generate_srs
 
 
-def generate(session_id: str, project_name: str, project_description: str, db: Session) -> dict:
-    session = db.query(UserSession).filter(UserSession.id == session_id).first()
+def generate(session_id: str, project_name: str, project_description: str, db: Session, user_id=None) -> dict:
+    q = db.query(UserSession).filter(UserSession.id == session_id)
+    if user_id is not None:
+        q = q.filter(UserSession.user_id == user_id)
+    session = q.first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 

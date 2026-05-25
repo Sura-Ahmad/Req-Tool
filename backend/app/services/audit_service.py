@@ -1,6 +1,9 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 from sqlalchemy import func
 from app.models.audit import AuditLog, LoginHistory
 from app.models.user import User
@@ -149,6 +152,7 @@ def log_action(
         ))
         db.commit()
     except Exception:
+        logger.exception("Failed to log audit action: %s on %s", action, entity_type)
         db.rollback()
 
 
@@ -169,4 +173,5 @@ def log_login(
         ))
         db.commit()
     except Exception:
+        logger.exception("Failed to log login attempt for %s", email)
         db.rollback()

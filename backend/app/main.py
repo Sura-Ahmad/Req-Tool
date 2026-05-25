@@ -15,10 +15,15 @@ from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.knowledge_base import ensure_collection
 
+logger = logging.getLogger(__name__)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    ensure_collection()  # runs at startup
-    yield               # app runs here
+    try:
+        ensure_collection()
+    except Exception as e:
+        logger.warning("Qdrant init failed at startup: %s", e)
+    yield
 
 
 app = FastAPI(title="Requirements AI", version="1.0.0", lifespan=lifespan)

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { getDocuments, getDocument } from '@/lib/api';
 import { Download } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 
 interface DocumentRow {
   session_id: string;
@@ -25,18 +26,34 @@ export default function DocumentsPage() {
   const fmt = (iso: string | null) =>
     iso ? new Date(iso).toLocaleString() : '—';
 
-  const handleDownload = async (sessionId: string, userEmail: string) => {
+  const handleDownload = async (sessionId: string, userEmail: string, domain: string, country: string) => {
     setDownloading(sessionId);
     try {
       const res = await getDocument(sessionId);
-      const text = res.data.document_text;
-      const blob = new Blob([text], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `document_${userEmail}_${sessionId.slice(0, 8)}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const text: string = res.data.document_text;
+
+      const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+      const margin = 50;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const maxLineWidth = pageWidth - margin * 2;
+      let y = margin;
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(11);
+      pdf.setTextColor(40, 40, 40);
+
+      const lines = pdf.splitTextToSize(text, maxLineWidth);
+      for (const line of lines) {
+        if (y + 14 > pageHeight - margin) {
+          pdf.addPage();
+          y = margin;
+        }
+        pdf.text(line, margin, y);
+        y += 14;
+      }
+
+      pdf.save(`document_${userEmail}_${sessionId.slice(0, 8)}.pdf`);
     } finally {
       setDownloading(null);
     }
@@ -83,7 +100,7 @@ export default function DocumentsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <button
-                      onClick={() => handleDownload(doc.session_id, doc.user_email)}
+                      onClick={() => handleDownload(doc.session_id, doc.user_email, doc.domain, doc.country)}
                       disabled={downloading === doc.session_id}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                       style={{ background: '#FFF0F0', color: '#FF6B6B' }}

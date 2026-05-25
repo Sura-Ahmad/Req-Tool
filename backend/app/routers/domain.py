@@ -10,12 +10,12 @@ router = APIRouter(prefix="/domains", tags=["Domains"])
 
 
 @router.get("/", response_model=List[DomainResponse])
-def get_domains(country: str, db: Session = Depends(get_db)):
+def get_domains(country: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     return domain_service.get_domains(country, db)
 
 
 @router.get("/{domain_id}/questions", response_model=List[QuestionResponse])
-def get_questions(domain_id: str, db: Session = Depends(get_db)):
+def get_questions(domain_id: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     return domain_service.get_questions(domain_id, db)
 
 

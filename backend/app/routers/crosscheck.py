@@ -14,7 +14,7 @@ router = APIRouter(prefix="/crosscheck", tags=["Cross-Check"])
 @router.get("/{session_id}", response_model=CrossCheckResponse)
 @limiter.limit("10/minute")
 def cross_check(request: Request, session_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    issues, ambiguities, duplicates, inconsistencies = crosscheck_service.run(str(session_id), db)
+    issues, ambiguities, duplicates, inconsistencies = crosscheck_service.run(str(session_id), db, user_id=current_user.id)
     return CrossCheckResponse(
         session_id=session_id,
         issues=issues,

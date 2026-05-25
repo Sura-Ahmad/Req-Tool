@@ -2,7 +2,7 @@ from typing import Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models.user import User
+from app.models.user import User, RefreshToken
 from app.models.domain import UserSession, Domain
 from app.models.requirements import Requirement
 from app.core.security import hash_password, verify_password
@@ -88,4 +88,5 @@ def change_password(user: User, current_password: str, new_password: str, db: Se
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     validate_password_strength(new_password)
     user.password_hash = hash_password(new_password)
+    db.query(RefreshToken).filter(RefreshToken.user_id == user.id, RefreshToken.is_revoked == False).update({"is_revoked": True})
     db.commit()

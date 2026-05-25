@@ -16,8 +16,11 @@ COLOR_MAP = {
 }
 
 
-def run(session_id: str, db: Session) -> tuple:
-    session = db.query(UserSession).filter(UserSession.id == session_id).first()
+def run(session_id: str, db: Session, user_id=None) -> tuple:
+    q = db.query(UserSession).filter(UserSession.id == session_id)
+    if user_id is not None:
+        q = q.filter(UserSession.user_id == user_id)
+    session = q.first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 

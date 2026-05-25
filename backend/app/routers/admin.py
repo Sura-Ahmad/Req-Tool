@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.services.auth_service import get_current_admin
 from app.services import admin_service, audit_service, kb_service
+from app.core.limiter import limiter
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -24,6 +25,7 @@ def get_users(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
 
 
 @router.put("/users/{user_id}/toggle-active")
+@limiter.limit("20/minute")
 def toggle_user_active(user_id: str, request: Request, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
     return admin_service.toggle_user_active(user_id, admin.id, db, request)
 
@@ -61,6 +63,7 @@ class DomainCreate(BaseModel):
 
 
 @router.post("/domains")
+@limiter.limit("20/minute")
 def create_domain(request: Request, data: DomainCreate, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
     return admin_service.create_domain(data.name, data.name_ar, data.country, admin.id, db, request)
 
@@ -73,11 +76,13 @@ class DomainUpdate(BaseModel):
 
 
 @router.put("/domains/{domain_id}")
+@limiter.limit("20/minute")
 def update_domain(domain_id: str, request: Request, data: DomainUpdate, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
     return admin_service.update_domain(domain_id, data, admin.id, db, request)
 
 
 @router.delete("/domains/{domain_id}")
+@limiter.limit("20/minute")
 def delete_domain(domain_id: str, request: Request, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
     return admin_service.delete_domain(domain_id, admin.id, db, request)
 
@@ -94,6 +99,7 @@ class QuestionCreate(BaseModel):
 
 
 @router.post("/domains/{domain_id}/questions")
+@limiter.limit("20/minute")
 def create_question(domain_id: str, request: Request, data: QuestionCreate, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
     return admin_service.create_question(domain_id, data.question_text, admin.id, db, request)
 
@@ -104,11 +110,13 @@ class QuestionUpdate(BaseModel):
 
 
 @router.put("/questions/{question_id}")
+@limiter.limit("20/minute")
 def update_question(question_id: str, request: Request, data: QuestionUpdate, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
     return admin_service.update_question(question_id, data, admin.id, db, request)
 
 
 @router.delete("/questions/{question_id}")
+@limiter.limit("20/minute")
 def delete_question(question_id: str, request: Request, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
     return admin_service.delete_question(question_id, admin.id, db, request)
 
@@ -158,6 +166,7 @@ def get_kb_files(admin=Depends(get_current_admin)):
 
 
 @router.post("/knowledge-base/upload")
+@limiter.limit("10/minute")
 async def upload_kb_file(
     request: Request,
     file: UploadFile = File(...),
@@ -170,5 +179,6 @@ async def upload_kb_file(
 
 
 @router.delete("/knowledge-base/{entry_id}")
+@limiter.limit("20/minute")
 def remove_kb_file(entry_id: str, request: Request, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
     return kb_service.delete_file(entry_id, admin.id, db, request)

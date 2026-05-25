@@ -40,7 +40,8 @@ def forgot_password(request: Request, data: ForgotPasswordRequest, background_ta
 
 
 @router.post("/reset-password")
-def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def reset_password(request: Request, data: ResetPasswordRequest, db: Session = Depends(get_db)):
     complete_password_reset(data.token, data.new_password, db)
     return {"message": "Password reset successfully. You can now log in with your new password."}
 
@@ -51,6 +52,7 @@ def get_me(current_user=Depends(get_current_user)):
 
 
 @router.post("/refresh", response_model=TokenResponse)
-def refresh(data: RefreshRequest, db: Session = Depends(get_db)):
+@limiter.limit("30/minute")
+def refresh(request: Request, data: RefreshRequest, db: Session = Depends(get_db)):
     access_token, refresh_token = refresh_tokens(data.refresh_token, db)
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)

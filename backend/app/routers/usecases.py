@@ -13,6 +13,6 @@ router = APIRouter(prefix="/usecases", tags=["Use Cases"])
 @router.post("/generate", response_model=UseCasesResponse)
 @limiter.limit("10/minute")
 def generate_use_cases_doc(request: Request, data: UseCasesRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    result = usecases_service.generate(data.session_id, db)
+    result = usecases_service.generate(data.session_id, db, user_id=current_user.id)
     use_cases = [UseCaseItem(**uc) for uc in result["use_cases"]]
     return UseCasesResponse(session_id=result["session_id"], use_cases=use_cases, total=len(use_cases))

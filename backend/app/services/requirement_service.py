@@ -32,8 +32,11 @@ def get_questions_for_answers(raw_answers: list, db: Session) -> dict:
     return {str(q.id): q.question_text for q in questions}
 
 
-def generate_requirements(session_id: str, document_text: str, db: Session) -> RequirementsResponse:
-    session = db.query(UserSession).filter(UserSession.id == session_id).first()
+def generate_requirements(session_id: str, document_text: str, db: Session, user_id=None) -> RequirementsResponse:
+    q = db.query(UserSession).filter(UserSession.id == session_id)
+    if user_id is not None:
+        q = q.filter(UserSession.user_id == user_id)
+    session = q.first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -124,8 +127,11 @@ def generate_requirements(session_id: str, document_text: str, db: Session) -> R
     )
 
 
-def add_requirement(session_id: str, req_type: str, description: str, db: Session) -> dict:
-    session = db.query(UserSession).filter(UserSession.id == session_id).first()
+def add_requirement(session_id: str, req_type: str, description: str, db: Session, user_id=None) -> dict:
+    q = db.query(UserSession).filter(UserSession.id == session_id)
+    if user_id is not None:
+        q = q.filter(UserSession.user_id == user_id)
+    session = q.first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     if req_type not in ("functional", "non_functional"):
@@ -155,10 +161,16 @@ def add_requirement(session_id: str, req_type: str, description: str, db: Sessio
     return {"id": str(req.id), "code": req.code, "description": req.description, "type": req.type}
 
 
-def update_requirement(requirement_id: str, description: str, db: Session):
+def update_requirement(requirement_id: str, description: str, db: Session, user_id=None):
     requirement = db.query(Requirement).filter(Requirement.id == requirement_id).first()
     if not requirement:
         raise HTTPException(status_code=404, detail="Requirement not found")
+    if user_id is not None:
+        session = db.query(UserSession).filter(
+            UserSession.id == requirement.session_id, UserSession.user_id == user_id
+        ).first()
+        if not session:
+            raise HTTPException(status_code=404, detail="Requirement not found")
 
     history = RequirementHistory(
         requirement_id=requirement.id,
@@ -174,10 +186,16 @@ def update_requirement(requirement_id: str, description: str, db: Session):
     return requirement
 
 
-def delete_requirement(requirement_id: str, db: Session) -> dict:
+def delete_requirement(requirement_id: str, db: Session, user_id=None) -> dict:
     requirement = db.query(Requirement).filter(Requirement.id == requirement_id).first()
     if not requirement:
         raise HTTPException(status_code=404, detail="Requirement not found")
+    if user_id is not None:
+        session = db.query(UserSession).filter(
+            UserSession.id == requirement.session_id, UserSession.user_id == user_id
+        ).first()
+        if not session:
+            raise HTTPException(status_code=404, detail="Requirement not found")
     db.delete(requirement)
     db.commit()
     return {"message": "Deleted"}

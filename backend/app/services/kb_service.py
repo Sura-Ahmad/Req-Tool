@@ -1,6 +1,6 @@
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
 from app.models.domain import Domain
@@ -52,7 +52,7 @@ def register_and_load(file_path: str, domain: str, country: str, original_name: 
         "domain": domain,
         "country": country.upper(),
         "original_name": original_name,
-        "uploaded_at": datetime.utcnow().isoformat(),
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
         "chunks": chunks,
     }
     manifest[entry_id] = entry
@@ -115,7 +115,7 @@ def load_all():
                 "domain": domain,
                 "country": country,
                 "original_name": filename,
-                "uploaded_at": datetime.utcnow().isoformat(),
+                "uploaded_at": datetime.now(timezone.utc).isoformat(),
                 "chunks": chunks,
             }
         _write_manifest(manifest)

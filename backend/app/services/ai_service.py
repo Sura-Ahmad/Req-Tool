@@ -141,13 +141,13 @@ NFR-2: [requirement]"""
 def parse_json_response(text: str) -> list:
     """Parse a JSON array from a Claude response, stripping markdown code fences."""
     clean = text.strip()
-    if "```json" in clean:
-        clean = clean.split("```json")[1].split("```")[0].strip()
-    elif "```" in clean:
-        clean = clean.split("```")[1].split("```")[0].strip()
     try:
+        if "```json" in clean:
+            clean = clean.split("```json", 1)[1].split("```", 1)[0].strip()
+        elif "```" in clean:
+            clean = clean.split("```", 1)[1].split("```", 1)[0].strip()
         return json.loads(clean)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, IndexError):
         logger.warning("Could not parse JSON response: %s", text[:200])
         return []
 

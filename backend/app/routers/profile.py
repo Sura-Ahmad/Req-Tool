@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 from app.core.database import get_db
 from app.services.auth_service import get_current_user
 from app.services import profile_service
+from app.core.limiter import limiter
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
 
@@ -30,7 +31,8 @@ class ProfileUpdate(BaseModel):
 
 
 @router.put("/update")
-def update_profile(data: ProfileUpdate, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def update_profile(request: Request, data: ProfileUpdate, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     return profile_service.update_profile(current_user, data.email, data.full_name, db)
 
 
@@ -40,6 +42,7 @@ class ChangePasswordRequest(BaseModel):
 
 
 @router.put("/change-password")
-def change_password(data: ChangePasswordRequest, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def change_password(request: Request, data: ChangePasswordRequest, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     profile_service.change_password(current_user, data.current_password, data.new_password, db)
     return {"message": "Password updated successfully"}

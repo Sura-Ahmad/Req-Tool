@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 from app.core.database import Base
 import uuid
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class UserRole(str, enum.Enum):
@@ -21,7 +21,7 @@ class User(Base):
     full_name = Column(String(100), nullable=False)
     role = Column(Enum(UserRole), default=UserRole.user)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     last_login = Column(DateTime, nullable=True)
 
     sessions = relationship("UserSession", back_populates="user")
@@ -50,6 +50,6 @@ class PasswordResetToken(Base):
     token_hash = Column(String(255), unique=True, nullable=False)
     expires_at = Column(DateTime, nullable=False)
     is_used = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="password_reset_tokens")

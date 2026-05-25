@@ -3,7 +3,7 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum as PyEnum
 
 
@@ -22,7 +22,7 @@ class Domain(Base):
     name_ar = Column(String(100), nullable=False)
     country = Column(String(10), nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     questions = relationship("Question", back_populates="domain")
     sessions = relationship("UserSession", back_populates="domain")
@@ -49,7 +49,7 @@ class UserSession(Base):
     role = Column(String(50), nullable=False, default="business_analyst")
     answers = Column(JSONB, nullable=True)
     document_text = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="sessions")
     domain = relationship("Domain", back_populates="sessions")

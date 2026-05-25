@@ -500,11 +500,17 @@ export async function generateAndDownloadSRSWord(
 // ─── Use Cases Word Generator ─────────────────────────────────────────────────
 
 interface UseCase {
+  use_case_id?: string;
   title: string;
   actor: string;
+  trigger?: string;
   preconditions: string;
   main_flow: string;
+  alternative_flows?: string;
+  exception_flows?: string;
   postconditions: string;
+  priority?: string;
+  related_requirements?: string;
 }
 
 function useCaseTable(uc: UseCase, index: number): (Paragraph | Table)[] {
@@ -558,7 +564,7 @@ function useCaseTable(uc: UseCase, index: number): (Paragraph | Table)[] {
         margins: { top: 100, bottom: 100, left: 140, right: 140 },
         children: [new Paragraph({
           children: [new TextRun({
-            text: `UC-${String(index + 1).padStart(2, '0')}: ${uc.title}`,
+            text: `${uc.use_case_id || `UC-${String(index + 1).padStart(2, '0')}`}: ${uc.title}`,
             bold: true,
             size: PT(12),
             font: 'Times New Roman',
@@ -569,16 +575,22 @@ function useCaseTable(uc: UseCase, index: number): (Paragraph | Table)[] {
     ],
   });
 
+  const rows = [
+    row('Actor', uc.actor),
+  ];
+  if (uc.trigger) rows.push(row('Trigger', uc.trigger));
+  rows.push(row('Preconditions', uc.preconditions));
+  rows.push(row('Main Flow', uc.main_flow));
+  if (uc.alternative_flows) rows.push(row('Alternative Flows', uc.alternative_flows));
+  if (uc.exception_flows) rows.push(row('Exception Flows', uc.exception_flows));
+  rows.push(row('Postconditions', uc.postconditions));
+  if (uc.priority) rows.push(row('Priority', uc.priority));
+  if (uc.related_requirements) rows.push(row('Related Requirements', uc.related_requirements));
+
   return [
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
-      rows: [
-        titleRow,
-        row('Actor', uc.actor),
-        row('Preconditions', uc.preconditions),
-        row('Main Flow', uc.main_flow),
-        row('Postconditions', uc.postconditions),
-      ],
+      rows: [titleRow, ...rows],
     }),
     emptyLine(),
   ];
@@ -722,22 +734,29 @@ export async function generateAndDownloadUseCasesWord(
                     shading: { type: ShadingType.CLEAR, color: 'auto', fill: '1E2A4A' },
                     borders: { top: { style: BorderStyle.SINGLE, size: 4, color: '1E2A4A' }, bottom: { style: BorderStyle.SINGLE, size: 4, color: '1E2A4A' }, left: { style: BorderStyle.SINGLE, size: 4, color: '1E2A4A' }, right: { style: BorderStyle.SINGLE, size: 4, color: '1E2A4A' } },
                     margins: { top: 80, bottom: 80, left: 120, right: 120 },
-                    width: { size: 15, type: WidthType.PERCENTAGE },
+                    width: { size: 12, type: WidthType.PERCENTAGE },
                     children: [new Paragraph({ children: [new TextRun({ text: 'ID', bold: true, size: PT(11), font: 'Times New Roman', color: 'FFFFFF' })] })],
                   }),
                   new TableCell({
                     shading: { type: ShadingType.CLEAR, color: 'auto', fill: '1E2A4A' },
                     borders: { top: { style: BorderStyle.SINGLE, size: 4, color: '1E2A4A' }, bottom: { style: BorderStyle.SINGLE, size: 4, color: '1E2A4A' }, left: { style: BorderStyle.SINGLE, size: 4, color: '1E2A4A' }, right: { style: BorderStyle.SINGLE, size: 4, color: '1E2A4A' } },
                     margins: { top: 80, bottom: 80, left: 120, right: 120 },
-                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    width: { size: 45, type: WidthType.PERCENTAGE },
                     children: [new Paragraph({ children: [new TextRun({ text: 'Use Case Title', bold: true, size: PT(11), font: 'Times New Roman', color: 'FFFFFF' })] })],
                   }),
                   new TableCell({
                     shading: { type: ShadingType.CLEAR, color: 'auto', fill: '1E2A4A' },
                     borders: { top: { style: BorderStyle.SINGLE, size: 4, color: '1E2A4A' }, bottom: { style: BorderStyle.SINGLE, size: 4, color: '1E2A4A' }, left: { style: BorderStyle.SINGLE, size: 4, color: '1E2A4A' }, right: { style: BorderStyle.SINGLE, size: 4, color: '1E2A4A' } },
                     margins: { top: 80, bottom: 80, left: 120, right: 120 },
-                    width: { size: 35, type: WidthType.PERCENTAGE },
+                    width: { size: 30, type: WidthType.PERCENTAGE },
                     children: [new Paragraph({ children: [new TextRun({ text: 'Primary Actor', bold: true, size: PT(11), font: 'Times New Roman', color: 'FFFFFF' })] })],
+                  }),
+                  new TableCell({
+                    shading: { type: ShadingType.CLEAR, color: 'auto', fill: '1E2A4A' },
+                    borders: { top: { style: BorderStyle.SINGLE, size: 4, color: '1E2A4A' }, bottom: { style: BorderStyle.SINGLE, size: 4, color: '1E2A4A' }, left: { style: BorderStyle.SINGLE, size: 4, color: '1E2A4A' }, right: { style: BorderStyle.SINGLE, size: 4, color: '1E2A4A' } },
+                    margins: { top: 80, bottom: 80, left: 120, right: 120 },
+                    width: { size: 13, type: WidthType.PERCENTAGE },
+                    children: [new Paragraph({ children: [new TextRun({ text: 'Priority', bold: true, size: PT(11), font: 'Times New Roman', color: 'FFFFFF' })] })],
                   }),
                 ],
               }),
@@ -747,7 +766,7 @@ export async function generateAndDownloadUseCasesWord(
                     new TableCell({
                       borders: { top: { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' }, bottom: { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' }, left: { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' }, right: { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' } },
                       margins: { top: 80, bottom: 80, left: 120, right: 120 },
-                      children: [new Paragraph({ children: [new TextRun({ text: `UC-${String(i + 1).padStart(2, '0')}`, bold: true, size: PT(11), font: 'Times New Roman' })] })],
+                      children: [new Paragraph({ children: [new TextRun({ text: uc.use_case_id || `UC-${String(i + 1).padStart(2, '0')}`, bold: true, size: PT(11), font: 'Times New Roman' })] })],
                     }),
                     new TableCell({
                       borders: { top: { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' }, bottom: { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' }, left: { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' }, right: { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' } },
@@ -758,6 +777,11 @@ export async function generateAndDownloadUseCasesWord(
                       borders: { top: { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' }, bottom: { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' }, left: { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' }, right: { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' } },
                       margins: { top: 80, bottom: 80, left: 120, right: 120 },
                       children: [new Paragraph({ children: [new TextRun({ text: uc.actor, size: PT(11), font: 'Times New Roman' })] })],
+                    }),
+                    new TableCell({
+                      borders: { top: { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' }, bottom: { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' }, left: { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' }, right: { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' } },
+                      margins: { top: 80, bottom: 80, left: 120, right: 120 },
+                      children: [new Paragraph({ children: [new TextRun({ text: uc.priority || '—', size: PT(11), font: 'Times New Roman' })] })],
                     }),
                   ],
                 })

@@ -47,7 +47,10 @@ def get_current_user(authorization: Optional[str] = Header(None), db: Session = 
     payload = verify_token(token)
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid token")
-    user = db.query(User).filter(User.id == payload["sub"]).first()
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user = db.query(User).filter(User.id == user_id_str).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     if not user.is_active:
@@ -142,6 +145,7 @@ def complete_password_reset(token: str, new_password: str, db: Session) -> None:
         raise HTTPException(status_code=400, detail="User not found")
     user.password_hash = hash_password(new_password)
     reset_token.is_used = True
+    db.query(RefreshToken).filter(RefreshToken.user_id == user.id, RefreshToken.is_revoked == False).update({"is_revoked": True})
     db.commit()
 
 

@@ -220,7 +220,7 @@ def get_sessions_with_documents(db: Session) -> list:
             "domain": domains_map[s.domain_id].name if s.domain_id in domains_map else "Unknown",
             "country": s.country,
             "created_at": (s.created_at.isoformat() + "Z") if s.created_at else None,
-            "preview": s.document_text[:200] + "..." if len(s.document_text) > 200 else s.document_text,
+            "preview": (s.document_text[:200] + "...") if s.document_text and len(s.document_text) > 200 else (s.document_text or ""),
         }
         for s in sessions
     ]

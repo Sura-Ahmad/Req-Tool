@@ -13,5 +13,5 @@ router = APIRouter(prefix="/srs", tags=["SRS"])
 @router.post("/generate", response_model=SRSResponse)
 @limiter.limit("5/minute")
 def generate_srs_doc(request: Request, data: SRSRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    result = srs_service.generate(data.session_id, data.project_name, data.project_description, db)
+    result = srs_service.generate(data.session_id, data.project_name, data.project_description, db, user_id=current_user.id)
     return SRSResponse(**result, format="IEEE")
