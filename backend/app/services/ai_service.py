@@ -245,7 +245,8 @@ Generate a complete SRS document following IEEE 830 standard with these sections
    3.2 Non-Functional Requirements
 4. Appendices
 
-Make it professional and complete."""
+Make it professional and complete.
+Use plain text only — do NOT use markdown formatting, asterisks, bold, italic, or any special symbols. Use numbered sections and plain headings only."""
 
     try:
         message = _get_client().messages.create(
