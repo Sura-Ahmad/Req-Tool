@@ -199,6 +199,40 @@ def delete_domain(domain_id: str, admin_id, db: Session, request) -> dict:
     return {"message": "Domain deleted"}
 
 
+# ── Documents ──────────────────────────────────────────────────────────────────
+
+def get_sessions_with_documents(db: Session) -> list:
+    sessions = (
+        db.query(UserSession)
+        .filter(UserSession.document_text.isnot(None))
+        .order_by(UserSession.created_at.desc())
+        .all()
+    )
+    user_ids = [s.user_id for s in sessions]
+    domain_ids = [s.domain_id for s in sessions]
+    users_map = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()}
+    domains_map = {d.id: d for d in db.query(Domain).filter(Domain.id.in_(domain_ids)).all()}
+    return [
+        {
+            "session_id": str(s.id),
+            "user_name": users_map[s.user_id].full_name if s.user_id in users_map else "Unknown",
+            "user_email": users_map[s.user_id].email if s.user_id in users_map else "Unknown",
+            "domain": domains_map[s.domain_id].name if s.domain_id in domains_map else "Unknown",
+            "country": s.country,
+            "created_at": (s.created_at.isoformat() + "Z") if s.created_at else None,
+            "preview": s.document_text[:200] + "..." if len(s.document_text) > 200 else s.document_text,
+        }
+        for s in sessions
+    ]
+
+
+def get_document_text(session_id: str, db: Session) -> dict:
+    session = db.query(UserSession).filter(UserSession.id == session_id).first()
+    if not session or not session.document_text:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {"document_text": session.document_text, "session_id": session_id}
+
+
 # ── Questions ──────────────────────────────────────────────────────────────────
 
 def get_questions_for_domain(domain_id: str, db: Session) -> list:

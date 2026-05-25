@@ -41,6 +41,10 @@ def generate_requirements(session_id: str, document_text: str, db: Session) -> R
     if not domain:
         raise HTTPException(status_code=404, detail="Domain not found")
 
+    if document_text:
+        session.document_text = document_text
+        db.flush()
+
     raw_answers = session.answers or []
     questions_map = get_questions_for_answers(raw_answers, db)
     answers = [

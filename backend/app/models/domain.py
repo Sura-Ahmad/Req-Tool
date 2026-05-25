@@ -48,6 +48,7 @@ class UserSession(Base):
     country = Column(String(10), nullable=False)
     role = Column(String(50), nullable=False, default="business_analyst")
     answers = Column(JSONB, nullable=True)
+    document_text = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="sessions")

@@ -182,6 +182,10 @@ export const getLoginHistory = (params?: {
 
 export const getFailedAttempts = () => api.get('/admin/login-history/failed-attempts');
 
+// Documents
+export const getDocuments = () => api.get('/admin/documents');
+export const getDocument = (session_id: string) => api.get(`/admin/documents/${session_id}`);
+
 // Knowledge Base
 export const getKbFiles = () => api.get('/admin/knowledge-base');
 export const uploadKbFile = (file: File, domain: string, country: string) => {

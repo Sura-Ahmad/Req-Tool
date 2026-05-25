@@ -35,6 +35,18 @@ def get_sessions(admin=Depends(get_current_admin), db: Session = Depends(get_db)
     return admin_service.get_all_sessions_with_details(db)
 
 
+# ── Documents ──────────────────────────────────────────────────────────────────
+
+@router.get("/documents")
+def get_documents(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
+    return admin_service.get_sessions_with_documents(db)
+
+
+@router.get("/documents/{session_id}")
+def get_document(session_id: str, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
+    return admin_service.get_document_text(session_id, db)
+
+
 # ── Domains ────────────────────────────────────────────────────────────────────
 
 @router.get("/domains")
