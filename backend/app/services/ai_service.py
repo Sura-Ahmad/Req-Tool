@@ -155,26 +155,46 @@ def parse_json_response(text: str) -> list:
 def generate_use_cases(domain_name: str, country: str, requirements: list) -> list:
     """Build a use-case prompt, call Claude, return a list of use-case dicts."""
     fr_text = "\n".join([f"{r.code}: {r.description}" for r in requirements])
-    prompt = f"""Based on these functional requirements for a {domain_name} system in {country}, generate use cases as structured text.
 
-Functional Requirements:
+    system_prompt = f"""You are a senior systems analyst with expertise in use case modeling for {domain_name} systems in {country}.
+You produce complete, professional use cases following UML and IEEE standards.
+Each use case must be directly traceable to one or more functional requirements.
+Cover ALL provided functional requirements — no FR should be left without a use case."""
+
+    user_prompt = f"""Generate use cases for a {domain_name} system in {country} based on these functional requirements:
+
 {fr_text}
 
-Generate use cases and return them as a JSON array. Each use case must have:
-- title: short title
-- actor: who performs this action
-- preconditions: what must be true before
-- main_flow: step by step flow as text
-- postconditions: what happens after
+Rules:
+- Create one use case per major user goal (group related FRs where logical)
+- Identify all relevant actors (end users, admins, external systems)
+- Every use case must cover at least one FR from the list above
+- Alternative flows must cover the most common deviation paths
+- Exception flows must cover failure/error scenarios
 
-Return ONLY a valid JSON array, no other text. Example:
-[{{"title": "User Login", "actor": "Registered User", "preconditions": "User has an account", "main_flow": "1. User opens login page\\n2. User enters credentials\\n3. System validates\\n4. User is logged in", "postconditions": "User is authenticated"}}]"""
+Return ONLY a valid JSON array with this exact structure — no other text:
+[
+  {{
+    "use_case_id": "UC-1",
+    "title": "Short action-oriented title",
+    "actor": "Primary actor",
+    "trigger": "What initiates this use case",
+    "preconditions": "What must be true before execution",
+    "main_flow": "1. Step one\\n2. Step two\\n3. Step three",
+    "alternative_flows": "A1: If X happens, then Y\\nA2: If Z happens, then W",
+    "exception_flows": "E1: If error occurs, system shows message and logs the error",
+    "postconditions": "What is true after successful completion",
+    "priority": "High",
+    "related_requirements": "FR-1, FR-2"
+  }}
+]"""
 
     try:
         message = _get_client().messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=3000,
-            messages=[{"role": "user", "content": prompt}],
+            max_tokens=4000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
         )
     except Exception:
         logger.exception("Claude use-cases call failed")
