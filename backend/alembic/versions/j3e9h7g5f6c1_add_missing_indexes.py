@@ -15,12 +15,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_index('ix_requirements_session_id', 'requirements', ['session_id'])
-    op.create_index('ix_requirement_history_requirement_id', 'requirement_history', ['requirement_id'])
-    op.create_index('ix_questions_domain_id', 'questions', ['domain_id'])
-    op.create_index('ix_user_sessions_user_id', 'user_sessions', ['user_id'])
-    op.create_index('ix_user_sessions_domain_id', 'user_sessions', ['domain_id'])
-    op.create_index('ix_refresh_tokens_expires_at', 'refresh_tokens', ['expires_at'])
+    op.create_index('ix_requirements_session_id', 'requirements', ['session_id'], if_not_exists=True)
+    op.create_index('ix_requirement_history_requirement_id', 'requirement_history', ['requirement_id'], if_not_exists=True)
+    op.create_index('ix_questions_domain_id', 'questions', ['domain_id'], if_not_exists=True)
+    op.create_index('ix_user_sessions_user_id', 'user_sessions', ['user_id'], if_not_exists=True)
+    op.create_index('ix_user_sessions_domain_id', 'user_sessions', ['domain_id'], if_not_exists=True)
+    op.create_index('ix_refresh_tokens_expires_at', 'refresh_tokens', ['expires_at'], if_not_exists=True)
 
 
 def downgrade() -> None:
