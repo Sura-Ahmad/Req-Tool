@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, BackgroundTasks, Request
+from fastapi import APIRouter, Depends, BackgroundTasks, Request, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, RefreshRequest, UserResponse, ForgotPasswordRequest, ResetPasswordRequest
@@ -27,7 +27,8 @@ def login(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
 
 @router.post("/logout")
 def logout(data: RefreshRequest, db: Session = Depends(get_db)):
-    logout_user(data.refresh_token, db)
+    if not logout_user(data.refresh_token, db):
+        raise HTTPException(status_code=400, detail="Token not found or already revoked")
     return {"message": "Logged out successfully"}
 
 

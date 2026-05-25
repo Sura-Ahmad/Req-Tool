@@ -1,48 +1,31 @@
-﻿from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.models.domain import Domain, Question, UserSession
 from app.schemas.domain import DomainResponse, QuestionResponse, SessionCreate, SessionResponse
 from app.services.auth_service import get_current_user
+from app.services import domain_service
 from typing import List
-import json
 
 router = APIRouter(prefix="/domains", tags=["Domains"])
 
+
 @router.get("/", response_model=List[DomainResponse])
 def get_domains(country: str, db: Session = Depends(get_db)):
-    domains = db.query(Domain).filter(
-        Domain.country == country,
-        Domain.is_active == True
-    ).all()
-    if not domains:
-        raise HTTPException(status_code=404, detail="No domains found for this country")
-    return domains
+    return domain_service.get_domains(country, db)
+
 
 @router.get("/{domain_id}/questions", response_model=List[QuestionResponse])
 def get_questions(domain_id: str, db: Session = Depends(get_db)):
-    questions = db.query(Question).filter(
-        Question.domain_id == domain_id,
-        Question.is_active == True
-    ).all()
-    if not questions:
-        raise HTTPException(status_code=404, detail="No questions found for this domain")
-    return questions
+    return domain_service.get_questions(domain_id, db)
+
 
 @router.post("/session", response_model=SessionResponse, status_code=201)
 def create_session(data: SessionCreate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    domain = db.query(Domain).filter(Domain.id == data.domain_id).first()
-    if not domain:
-        raise HTTPException(status_code=404, detail="Domain not found")
-
-    session = UserSession(
-        user_id=current_user.id,
+    return domain_service.create_session(
         domain_id=data.domain_id,
         country=data.country,
         role=data.role.value,
-        answers=json.dumps([{"question_id": str(a.question_id), "answer": a.answer} for a in data.answers])
+        answers=data.answers,
+        user_id=current_user.id,
+        db=db,
     )
-    db.add(session)
-    db.commit()
-    db.refresh(session)
-    return session

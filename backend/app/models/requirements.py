@@ -10,7 +10,7 @@ class Requirement(Base):
     __tablename__ = "requirements"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    session_id = Column(UUID(as_uuid=True), ForeignKey("user_sessions.id"), nullable=False)
+    session_id = Column(UUID(as_uuid=True), ForeignKey("user_sessions.id"), nullable=False, index=True)
     code = Column(String(20), nullable=False)
     description = Column(Text, nullable=False)
     type = Column(String(20), nullable=False)
@@ -26,7 +26,7 @@ class RequirementHistory(Base):
     __tablename__ = "requirement_history"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    requirement_id = Column(UUID(as_uuid=True), ForeignKey("requirements.id"), nullable=False)
+    requirement_id = Column(UUID(as_uuid=True), ForeignKey("requirements.id"), nullable=False, index=True)
     old_description = Column(Text, nullable=False)
     changed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

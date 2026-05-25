@@ -1,6 +1,6 @@
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import Header, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -9,7 +9,7 @@ from app.core.security import create_access_token, create_refresh_token, verify_
 from app.models.user import User, RefreshToken, PasswordResetToken, UserRole
 from app.core.config import settings
 from app.core.email import send_reset_email
-from app.core.audit import log_login
+from app.services.audit_service import log_login
 
 ALLOWED_EMAIL_DOMAINS = {"cit.just.edu.jo", "just.edu.jo", "outlook.com", "yahoo.com", "gmail.com"}
 
@@ -29,7 +29,7 @@ def store_refresh_token(user_id, refresh_token: str, db: Session) -> None:
     db.add(RefreshToken(
         user_id=user_id,
         token_hash=hash_token(refresh_token),
-        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
     ))
 
 
@@ -92,7 +92,7 @@ def login_user(email: str, password: str, db: Session, request) -> tuple:
         log_login(db, email=email, success=False, user_id=user.id, request=request, failure_reason="account_disabled")
         raise HTTPException(status_code=401, detail="Account is disabled")
     log_login(db, email=email, success=True, user_id=user.id, request=request)
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.now(timezone.utc)
     db.commit()
     access_token, refresh_token = create_tokens(user.id)
     store_refresh_token(user.id, refresh_token, db)
@@ -100,11 +100,13 @@ def login_user(email: str, password: str, db: Session, request) -> tuple:
     return access_token, refresh_token
 
 
-def logout_user(refresh_token: str, db: Session) -> None:
+def logout_user(refresh_token: str, db: Session) -> bool:
     db_token = db.query(RefreshToken).filter(RefreshToken.token_hash == hash_token(refresh_token)).first()
-    if db_token:
-        db_token.is_revoked = True
-        db.commit()
+    if not db_token:
+        return False
+    db_token.is_revoked = True
+    db.commit()
+    return True
 
 
 def initiate_password_reset(email: str, background_tasks: BackgroundTasks, db: Session) -> None:
@@ -119,7 +121,7 @@ def initiate_password_reset(email: str, background_tasks: BackgroundTasks, db: S
         db.add(PasswordResetToken(
             user_id=user.id,
             token_hash=hash_token(token),
-            expires_at=datetime.utcnow() + timedelta(hours=1),
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
         ))
         db.commit()
         reset_link = f"{settings.FRONTEND_URL}/auth/reset-password?token={token}"
@@ -131,7 +133,7 @@ def complete_password_reset(token: str, new_password: str, db: Session) -> None:
     reset_token = db.query(PasswordResetToken).filter(
         PasswordResetToken.token_hash == hash_token(token),
         PasswordResetToken.is_used == False,
-        PasswordResetToken.expires_at > datetime.utcnow(),
+        PasswordResetToken.expires_at > datetime.now(timezone.utc),
     ).first()
     if not reset_token:
         raise HTTPException(status_code=400, detail="Invalid or expired reset link. Please request a new one.")

@@ -1,4 +1,3 @@
-import json
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.models.requirements import Requirement
@@ -26,7 +25,7 @@ def run(session_id: str, db: Session) -> tuple:
     if not domain:
         raise HTTPException(status_code=404, detail="Domain not found")
 
-    raw_answers = json.loads(session.answers) if session.answers else []
+    raw_answers = session.answers or []
     questions_map = get_questions_for_answers(raw_answers, db)
     answers_text = build_answers_text(raw_answers, questions_map)
 

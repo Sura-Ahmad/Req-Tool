@@ -5,7 +5,7 @@ from sqlalchemy import func
 from app.models.user import User
 from app.models.domain import Domain, Question, UserSession
 from app.models.requirements import Requirement
-from app.core.audit import log_action
+from app.services.audit_service import log_action
 
 
 # ── Stats ──────────────────────────────────────────────────────────────────────

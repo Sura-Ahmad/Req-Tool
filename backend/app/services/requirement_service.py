@@ -1,11 +1,10 @@
-import json
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.models.requirements import Requirement, RequirementHistory
 from app.models.domain import Question, UserSession, Domain
 from app.schemas.requirements import RequirementItem, RequirementsResponse
-from app.core.ai import generate_requirements as ai_generate_requirements
+from app.services.ai_service import generate_requirements as ai_generate_requirements
 
 
 def split_by_type(requirements: list) -> tuple:
@@ -42,7 +41,7 @@ def generate_requirements(session_id: str, document_text: str, db: Session) -> R
     if not domain:
         raise HTTPException(status_code=404, detail="Domain not found")
 
-    raw_answers = json.loads(session.answers) if session.answers else []
+    raw_answers = session.answers or []
     questions_map = get_questions_for_answers(raw_answers, db)
     answers = [
         {"question": questions_map.get(a.get("question_id"), ""), "answer": a.get("answer", "")}
@@ -60,9 +59,6 @@ def generate_requirements(session_id: str, document_text: str, db: Session) -> R
     if result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
 
-    db.query(Requirement).filter(Requirement.session_id == session.id).delete()
-    db.commit()
-
     functional_data = result.get("functional", [])
     non_functional_data = result.get("non_functional", [])
 
@@ -78,37 +74,43 @@ def generate_requirements(session_id: str, document_text: str, db: Session) -> R
     functional_items = []
     non_functional_items = []
 
-    for req in functional_data:
-        parts = req.split(":", 1)
-        if len(parts) == 2:
-            req_obj = Requirement(
-                session_id=session.id,
-                code=parts[0].strip(),
-                description=parts[1].strip(),
-                type="functional",
-            )
-            db.add(req_obj)
-            db.flush()
-            functional_items.append(RequirementItem(
-                id=req_obj.id, code=parts[0].strip(), description=parts[1].strip(), type="functional",
-            ))
+    try:
+        db.query(Requirement).filter(Requirement.session_id == session.id).delete()
 
-    for req in non_functional_data:
-        parts = req.split(":", 1)
-        if len(parts) == 2:
-            req_obj = Requirement(
-                session_id=session.id,
-                code=parts[0].strip(),
-                description=parts[1].strip(),
-                type="non_functional",
-            )
-            db.add(req_obj)
-            db.flush()
-            non_functional_items.append(RequirementItem(
-                id=req_obj.id, code=parts[0].strip(), description=parts[1].strip(), type="non_functional",
-            ))
+        for req in functional_data:
+            parts = req.split(":", 1)
+            if len(parts) == 2:
+                req_obj = Requirement(
+                    session_id=session.id,
+                    code=parts[0].strip(),
+                    description=parts[1].strip(),
+                    type="functional",
+                )
+                db.add(req_obj)
+                db.flush()
+                functional_items.append(RequirementItem(
+                    id=req_obj.id, code=parts[0].strip(), description=parts[1].strip(), type="functional",
+                ))
 
-    db.commit()
+        for req in non_functional_data:
+            parts = req.split(":", 1)
+            if len(parts) == 2:
+                req_obj = Requirement(
+                    session_id=session.id,
+                    code=parts[0].strip(),
+                    description=parts[1].strip(),
+                    type="non_functional",
+                )
+                db.add(req_obj)
+                db.flush()
+                non_functional_items.append(RequirementItem(
+                    id=req_obj.id, code=parts[0].strip(), description=parts[1].strip(), type="non_functional",
+                ))
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to save requirements")
 
     return RequirementsResponse(
         session_id=session.id,
@@ -126,15 +128,14 @@ def add_requirement(session_id: str, req_type: str, description: str, db: Sessio
         raise HTTPException(status_code=400, detail="type must be 'functional' or 'non_functional'")
 
     prefix = "FR" if req_type == "functional" else "NFR"
-    existing = db.query(Requirement).filter(
-        Requirement.session_id == session.id,
-        Requirement.type == req_type,
-    ).all()
-    next_num = len(existing) + 1
+    existing_codes = {
+        r.code for r in db.query(Requirement.code).filter(
+            Requirement.session_id == session.id
+        ).all()
+    }
+    next_num = 1
     code = f"{prefix}-{next_num}"
-    while db.query(Requirement).filter(
-        Requirement.session_id == session.id, Requirement.code == code
-    ).first():
+    while code in existing_codes:
         next_num += 1
         code = f"{prefix}-{next_num}"
 
@@ -163,7 +164,7 @@ def update_requirement(requirement_id: str, description: str, db: Session):
 
     requirement.description = description
     requirement.is_edited = True
-    requirement.updated_at = datetime.utcnow()
+    requirement.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(requirement)
     return requirement

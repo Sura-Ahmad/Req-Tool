@@ -1,9 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models.audit import AuditLog, LoginHistory
 from app.models.user import User
+from fastapi import Request
 
 
 def get_audit_logs(
@@ -104,7 +105,7 @@ def get_login_history(
 
 
 def get_failed_login_attempts(db: Session, hours: int = 24, limit: int = 10) -> list:
-    since = datetime.utcnow() - timedelta(hours=hours)
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
     results = (
         db.query(
             LoginHistory.email_attempted,
@@ -125,3 +126,47 @@ def get_failed_login_attempts(db: Session, hours: int = 24, limit: int = 10) -> 
         }
         for r in results
     ]
+
+
+def log_action(
+    db: Session,
+    user_id,
+    action: str,
+    entity_type: str,
+    entity_id: Optional[str] = None,
+    details: Optional[dict] = None,
+    request=None,
+):
+    try:
+        ip_address = request.client.host if request and request.client else None
+        db.add(AuditLog(
+            user_id=user_id,
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            details=details,
+            ip_address=ip_address,
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
+def log_login(
+    db: Session,
+    email: str,
+    success: bool,
+    user_id=None,
+    request=None,
+    failure_reason: Optional[str] = None,
+):
+    try:
+        db.add(LoginHistory(
+            user_id=user_id,
+            email_attempted=email,
+            success=success,
+            failure_reason=failure_reason,
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()

@@ -1,8 +1,132 @@
 import json
 import logging
-from app.core.ai import _get_client
+import anthropic
+from fastapi import HTTPException
+from app.core.config import settings
+from app.core.knowledge_base import retrieve_context
 
 logger = logging.getLogger("requirements_ai")
+
+_client = None
+
+
+def _get_client() -> anthropic.Anthropic:
+    global _client
+    if _client is None:
+        _client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    return _client
+
+
+_ROLE_INSTRUCTIONS = {
+    "product_owner": "Write requirements as high-level business outcomes and user stories. Focus on WHAT the system should do, not HOW. Use business language.",
+    "business_analyst": "Write requirements as detailed functional specifications. Be precise and measurable. Include acceptance criteria hints.",
+    "developer": "Write requirements as technical specifications. Include implementation details, APIs, data structures, and performance metrics.",
+    "stakeholder": "Write requirements as business goals and benefits. Focus on value delivered, ROI, and business impact. Use non-technical language.",
+}
+
+
+def generate_requirements(
+    domain: str,
+    role: str,
+    answers: list,
+    document_text: str = "",
+    knowledge_context: str = "",
+    country: str = "Jordan",
+) -> dict:
+    if not knowledge_context:
+        query = f"{domain} system requirements {' '.join([a.get('answer', '') for a in answers])}"
+        knowledge_context = retrieve_context(domain, query, limit=3)
+
+    answers_text = "\n".join(
+        [f"Q: {a.get('question', '')} A: {a.get('answer', '')}" for a in answers]
+    )
+    role_instruction = _ROLE_INSTRUCTIONS.get(role, "Write clear and detailed requirements.")
+
+    validation_prompt = (
+        f'Does "{" ".join([a.get("answer", "") for a in answers])}" '
+        f"relate to the {domain} domain?\nAnswer with only YES or NO."
+    )
+    try:
+        validation = _get_client().messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=10,
+            messages=[{"role": "user", "content": validation_prompt}],
+        )
+        if "NO" in validation.content[0].text.upper():
+            return {
+                "functional": [],
+                "non_functional": [],
+                "raw": "",
+                "error": (
+                    f"The system you described doesn't match the {domain} domain. "
+                    f"Please choose a system related to {domain}."
+                ),
+            }
+    except Exception:
+        logger.exception("Claude validation call failed")
+
+    system_text = f"""You are an expert requirements engineer specializing in the {domain} domain in {country}.
+
+## Role-Specific Instructions
+{role_instruction}
+
+## Output Format
+Generate exactly in this format:
+
+### Functional Requirements
+FR-1: [requirement]
+FR-2: [requirement]
+
+### Non-Functional Requirements
+NFR-1: [requirement]
+NFR-2: [requirement]"""
+
+    user_prompt_parts = [
+        f"## Project Context\n- Domain: {domain}\n- Target Role: {role.replace('_', ' ').title()}\n- Country: {country}",
+        f"## Questionnaire Answers\n{answers_text}",
+    ]
+    if document_text:
+        user_prompt_parts.append(f"## Additional Document Content\n{document_text}")
+    if knowledge_context:
+        user_prompt_parts.append(f"## {country} Domain Knowledge Base\n{knowledge_context}")
+
+    user_prompt = "\n\n".join(user_prompt_parts)
+
+    try:
+        message = _get_client().messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=2000,
+            system=[
+                {
+                    "type": "text",
+                    "text": system_text,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+            messages=[{"role": "user", "content": user_prompt}],
+            extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
+        )
+    except Exception:
+        logger.exception("Claude generation call failed")
+        return {"functional": [], "non_functional": [], "raw": "", "error": "AI generation failed. Please try again."}
+
+    response_text = message.content[0].text
+    functional: list[str] = []
+    non_functional: list[str] = []
+    current_section = None
+
+    for line in response_text.split("\n"):
+        line = line.strip()
+        if "Functional Requirements" in line and "Non-" not in line:
+            current_section = "functional"
+        elif "Non-Functional Requirements" in line:
+            current_section = "non_functional"
+        elif line.startswith("FR-") and current_section == "functional":
+            functional.append(line)
+        elif line.startswith("NFR-") and current_section == "non_functional":
+            non_functional.append(line)
+
+    return {"functional": functional, "non_functional": non_functional, "raw": response_text}
 
 
 def parse_json_response(text: str) -> list:
@@ -37,11 +161,15 @@ Generate use cases and return them as a JSON array. Each use case must have:
 Return ONLY a valid JSON array, no other text. Example:
 [{{"title": "User Login", "actor": "Registered User", "preconditions": "User has an account", "main_flow": "1. User opens login page\\n2. User enters credentials\\n3. System validates\\n4. User is logged in", "postconditions": "User is authenticated"}}]"""
 
-    message = _get_client().messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=3000,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    try:
+        message = _get_client().messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=3000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+    except Exception:
+        logger.exception("Claude use-cases call failed")
+        raise HTTPException(status_code=503, detail="AI service unavailable. Please try again.")
     return parse_json_response(message.content[0].text)
 
 
@@ -90,11 +218,15 @@ Generate a complete SRS document following IEEE 830 standard with these sections
 
 Make it professional and complete."""
 
-    message = _get_client().messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=4000,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    try:
+        message = _get_client().messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=4000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+    except Exception:
+        logger.exception("Claude SRS call failed")
+        raise HTTPException(status_code=503, detail="AI service unavailable. Please try again.")
     return message.content[0].text
 
 
@@ -129,9 +261,13 @@ Find issues and return JSON array. Each issue must have:
 
 Return ONLY a valid JSON array. If no issues found, return []."""
 
-    message = _get_client().messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=1000,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    try:
+        message = _get_client().messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+    except Exception:
+        logger.exception("Claude crosscheck call failed")
+        raise HTTPException(status_code=503, detail="AI service unavailable. Please try again.")
     return parse_json_response(message.content[0].text)

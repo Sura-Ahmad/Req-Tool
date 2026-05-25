@@ -38,3 +38,9 @@ class UpdateRequirementResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AddRequirementRequest(BaseModel):
+    session_id: str
+    type: str
+    description: str

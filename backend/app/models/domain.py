@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 import uuid
@@ -32,7 +32,7 @@ class Question(Base):
     __tablename__ = "questions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    domain_id = Column(UUID(as_uuid=True), ForeignKey("domains.id"), nullable=False)
+    domain_id = Column(UUID(as_uuid=True), ForeignKey("domains.id"), nullable=False, index=True)
     question_text = Column(Text, nullable=False)
     is_active = Column(Boolean, default=True)
 
@@ -43,11 +43,11 @@ class UserSession(Base):
     __tablename__ = "user_sessions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    domain_id = Column(UUID(as_uuid=True), ForeignKey("domains.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    domain_id = Column(UUID(as_uuid=True), ForeignKey("domains.id"), nullable=False, index=True)
     country = Column(String(10), nullable=False)
     role = Column(String(50), nullable=False, default="business_analyst")
-    answers = Column(Text, nullable=True)
+    answers = Column(JSONB, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="sessions")

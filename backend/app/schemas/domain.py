@@ -1,13 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 from uuid import UUID
 from typing import List
-from enum import Enum
-
-class ProjectRole(str, Enum):
-    PO = "product_owner"
-    BA = "business_analyst"
-    DEVELOPER = "developer"
-    STAKEHOLDER = "stakeholder"
+from app.models.domain import ProjectRole
 
 class DomainResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
