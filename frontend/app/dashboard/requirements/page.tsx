@@ -364,11 +364,19 @@ function RequirementsPageInner() {
                   </div>
                   {useCases.map((uc, i) => (
                     <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5 mb-3">
-                      <h3 className="font-bold text-gray-800 mb-2">{uc.title}</h3>
-                      <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Actor:</span> {uc.actor}</p>
-                      <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Preconditions:</span> {uc.preconditions}</p>
-                      <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Main Flow:</span> {uc.main_flow}</p>
-                      <p className="text-sm text-gray-500"><span className="font-medium">Postconditions:</span> {uc.postconditions}</p>
+                      <div className="flex items-center gap-2 mb-2">
+                        {uc.use_case_id && <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{background:'#FFF0F0',color:'#FF6B6B'}}>{uc.use_case_id}</span>}
+                        {uc.priority && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{uc.priority}</span>}
+                      </div>
+                      <h3 className="font-bold text-gray-800 mb-3">{uc.title}</h3>
+                      <p className="text-sm text-gray-600 mb-1"><span className="font-medium text-gray-700">Actor:</span> {uc.actor}</p>
+                      {uc.trigger && <p className="text-sm text-gray-600 mb-1"><span className="font-medium text-gray-700">Trigger:</span> {uc.trigger}</p>}
+                      <p className="text-sm text-gray-600 mb-1"><span className="font-medium text-gray-700">Preconditions:</span> {uc.preconditions}</p>
+                      <p className="text-sm text-gray-600 mb-1"><span className="font-medium text-gray-700">Main Flow:</span> {uc.main_flow}</p>
+                      {uc.alternative_flows && <p className="text-sm text-gray-600 mb-1"><span className="font-medium text-gray-700">Alternative Flows:</span> {uc.alternative_flows}</p>}
+                      {uc.exception_flows && <p className="text-sm text-gray-600 mb-1"><span className="font-medium text-gray-700">Exception Flows:</span> {uc.exception_flows}</p>}
+                      <p className="text-sm text-gray-600 mb-1"><span className="font-medium text-gray-700">Postconditions:</span> {uc.postconditions}</p>
+                      {uc.related_requirements && <p className="text-sm text-gray-500 mt-2 text-xs"><span className="font-medium">Related:</span> {uc.related_requirements}</p>}
                     </div>
                   ))}
                 </>
