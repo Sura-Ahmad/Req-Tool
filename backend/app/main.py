@@ -1,11 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -14,6 +9,12 @@ from app.routers import auth, domain, upload, requirements, crosscheck, srs, use
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.knowledge_base import ensure_collection
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+
 
 logger = logging.getLogger(__name__)
 
