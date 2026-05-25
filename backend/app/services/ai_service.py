@@ -172,6 +172,8 @@ Rules:
 - Alternative flows must cover the most common deviation paths
 - Exception flows must cover failure/error scenarios
 
+IMPORTANT: All JSON string values must be on a single line. Use " | " to separate multiple steps — do NOT use actual line breaks inside JSON strings.
+
 Return ONLY a valid JSON array with this exact structure — no other text:
 [
   {{
@@ -180,8 +182,8 @@ Return ONLY a valid JSON array with this exact structure — no other text:
     "actor": "Primary actor",
     "trigger": "What initiates this use case",
     "preconditions": "What must be true before execution",
-    "main_flow": "1. Step one\\n2. Step two\\n3. Step three",
-    "alternative_flows": "A1: If X happens, then Y\\nA2: If Z happens, then W",
+    "main_flow": "1. Step one | 2. Step two | 3. Step three",
+    "alternative_flows": "A1: If X happens, then Y | A2: If Z happens, then W",
     "exception_flows": "E1: If error occurs, system shows message and logs the error",
     "postconditions": "What is true after successful completion",
     "priority": "High",
