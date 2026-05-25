@@ -65,13 +65,22 @@ def generate_requirements(
     except Exception:
         logger.exception("Claude validation call failed")
 
-    system_text = f"""You are an expert requirements engineer specializing in the {domain} domain in {country}.
+    system_text = f"""You are a senior requirements engineer with 15+ years of experience in the {domain} domain in {country}.
+Your requirements are precise, testable, and complete — no vague language, no overlaps, no gaps.
 
 ## Role-Specific Instructions
 {role_instruction}
 
+## Requirements Quality Rules
+- Each requirement must be atomic (one requirement per line)
+- Use active voice: "The system shall..." or "The system must..."
+- Each requirement must be verifiable/testable
+- Avoid: "user-friendly", "fast", "easy" — be specific and measurable
+- Non-functional requirements must include measurable thresholds (e.g., response time < 2s, uptime ≥ 99.9%)
+- Cover: security, performance, scalability, accessibility where relevant
+
 ## Output Format
-Generate exactly in this format:
+Generate exactly in this format — no extra text before or after:
 
 ### Functional Requirements
 FR-1: [requirement]
