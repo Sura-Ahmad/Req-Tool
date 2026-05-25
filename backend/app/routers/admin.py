@@ -1,130 +1,45 @@
-﻿import os
-import shutil
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
+from fastapi import APIRouter, Depends, Request, UploadFile, File, Form
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from typing import Optional
 from pydantic import BaseModel
-from datetime import datetime, timedelta
 from app.core.database import get_db
-from app.models.user import User, UserRole
-from app.models.domain import Domain, Question, UserSession
-from app.models.requirements import Requirement
-from app.core.knowledge_base import (
-    register_and_load, list_kb_files, delete_kb_file, _kb_path
-)
-from app.core.config import settings
-from app.models.audit import AuditLog, LoginHistory
-from app.core.audit import log_action
 from app.services.auth_service import get_current_admin
+from app.services import admin_service, audit_service, kb_service
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
 
+# ── Stats ──────────────────────────────────────────────────────────────────────
+
 @router.get("/stats")
 def get_stats(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
-    total_users = db.query(func.count(User.id)).scalar()
-    total_sessions = db.query(func.count(UserSession.id)).scalar()
-    total_requirements = db.query(func.count(Requirement.id)).scalar()
-    active_users = db.query(func.count(User.id)).filter(User.is_active == True).scalar()
-    return {
-        "total_users": total_users,
-        "total_sessions": total_sessions,
-        "total_requirements": total_requirements,
-        "active_users_count": active_users,
-    }
+    return admin_service.get_dashboard_stats(db)
 
+
+# ── Users ──────────────────────────────────────────────────────────────────────
 
 @router.get("/users")
 def get_users(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
-    session_counts = dict(
-        db.query(UserSession.user_id, func.count(UserSession.id))
-        .group_by(UserSession.user_id)
-        .all()
-    )
-    users = db.query(User).all()
-    return [
-        {
-            "id": str(user.id),
-            "full_name": user.full_name,
-            "email": user.email,
-            "role": user.role.value,
-            "is_active": user.is_active,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
-            "last_login": user.last_login.isoformat() if user.last_login else None,
-            "sessions_count": session_counts.get(user.id, 0),
-        }
-        for user in users
-    ]
+    return admin_service.get_all_users_with_session_counts(db)
 
 
 @router.put("/users/{user_id}/toggle-active")
 def toggle_user_active(user_id: str, request: Request, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
-    if str(admin.id) == user_id:
-        raise HTTPException(status_code=400, detail="You cannot deactivate your own account")
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    user.is_active = not user.is_active
-    db.commit()
-    log_action(
-        db, admin.id,
-        action="activate_user" if user.is_active else "deactivate_user",
-        entity_type="user",
-        entity_id=user_id,
-        details={"email": user.email, "is_active": user.is_active},
-        request=request,
-    )
-    return {"id": str(user.id), "is_active": user.is_active}
+    return admin_service.toggle_user_active(user_id, admin.id, db, request)
 
+
+# ── Sessions ───────────────────────────────────────────────────────────────────
 
 @router.get("/sessions")
 def get_sessions(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
-    sessions = db.query(UserSession).all()
-    user_ids = [s.user_id for s in sessions]
-    domain_ids = [s.domain_id for s in sessions]
-    session_ids = [s.id for s in sessions]
+    return admin_service.get_all_sessions_with_details(db)
 
-    users_map = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()}
-    domains_map = {d.id: d for d in db.query(Domain).filter(Domain.id.in_(domain_ids)).all()}
-    req_counts = dict(
-        db.query(Requirement.session_id, func.count(Requirement.id))
-        .filter(Requirement.session_id.in_(session_ids))
-        .group_by(Requirement.session_id)
-        .all()
-    )
 
-    result = []
-    for s in sessions:
-        user = users_map.get(s.user_id)
-        domain = domains_map.get(s.domain_id)
-        result.append({
-            "id": str(s.id),
-            "user_name": user.full_name if user else "Unknown",
-            "user_email": user.email if user else "Unknown",
-            "domain_name": domain.name if domain else "Unknown",
-            "country": s.country,
-            "role": s.role,
-            "created_at": s.created_at.isoformat() if s.created_at else None,
-            "requirements_count": req_counts.get(s.id, 0),
-        })
-    return result
-
+# ── Domains ────────────────────────────────────────────────────────────────────
 
 @router.get("/domains")
 def get_domains(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
-    domains = db.query(Domain).all()
-    return [
-        {
-            "id": str(d.id),
-            "name": d.name,
-            "name_ar": d.name_ar,
-            "country": d.country,
-            "is_active": d.is_active,
-            "created_at": d.created_at.isoformat() if d.created_at else None,
-        }
-        for d in domains
-    ]
+    return admin_service.get_all_domains_with_session_counts(db)
 
 
 class DomainCreate(BaseModel):
@@ -135,28 +50,7 @@ class DomainCreate(BaseModel):
 
 @router.post("/domains")
 def create_domain(request: Request, data: DomainCreate, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
-    existing = db.query(Domain).filter(Domain.name == data.name, Domain.country == data.country).first()
-    if existing:
-        raise HTTPException(status_code=400, detail=f"Domain '{data.name}' already exists for country '{data.country}'.")
-    domain = Domain(name=data.name, name_ar=data.name_ar, country=data.country)
-    db.add(domain)
-    db.commit()
-    db.refresh(domain)
-    log_action(
-        db, admin.id,
-        action="create_domain",
-        entity_type="domain",
-        entity_id=str(domain.id),
-        details={"name": data.name, "name_ar": data.name_ar, "country": data.country},
-        request=request,
-    )
-    return {
-        "id": str(domain.id),
-        "name": domain.name,
-        "name_ar": domain.name_ar,
-        "country": domain.country,
-        "is_active": domain.is_active,
-    }
+    return admin_service.create_domain(data.name, data.name_ar, data.country, admin.id, db, request)
 
 
 class DomainUpdate(BaseModel):
@@ -168,75 +62,19 @@ class DomainUpdate(BaseModel):
 
 @router.put("/domains/{domain_id}")
 def update_domain(domain_id: str, request: Request, data: DomainUpdate, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
-    domain = db.query(Domain).filter(Domain.id == domain_id).first()
-    if not domain:
-        raise HTTPException(status_code=404, detail="Domain not found")
-    changes = {}
-    if data.name is not None:
-        changes["name"] = {"old": domain.name, "new": data.name}
-        domain.name = data.name
-    if data.name_ar is not None:
-        changes["name_ar"] = {"old": domain.name_ar, "new": data.name_ar}
-        domain.name_ar = data.name_ar
-    if data.country is not None:
-        changes["country"] = {"old": domain.country, "new": data.country}
-        domain.country = data.country
-    if data.is_active is not None:
-        changes["is_active"] = {"old": domain.is_active, "new": data.is_active}
-        domain.is_active = data.is_active
-    db.commit()
-    log_action(
-        db, admin.id,
-        action="update_domain",
-        entity_type="domain",
-        entity_id=domain_id,
-        details=changes,
-        request=request,
-    )
-    return {
-        "id": str(domain.id),
-        "name": domain.name,
-        "name_ar": domain.name_ar,
-        "country": domain.country,
-        "is_active": domain.is_active,
-    }
+    return admin_service.update_domain(domain_id, data, admin.id, db, request)
 
 
 @router.delete("/domains/{domain_id}")
 def delete_domain(domain_id: str, request: Request, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
-    from app.models.domain import UserSession
-    domain = db.query(Domain).filter(Domain.id == domain_id).first()
-    if not domain:
-        raise HTTPException(status_code=404, detail="Domain not found")
-    has_sessions = db.query(UserSession).filter(UserSession.domain_id == domain_id).first()
-    if has_sessions:
-        raise HTTPException(status_code=400, detail="Cannot delete domain with existing sessions. Deactivate it instead.")
-    db.query(Question).filter(Question.domain_id == domain_id).delete()
-    db.delete(domain)
-    db.commit()
-    log_action(
-        db, admin.id,
-        action="delete_domain",
-        entity_type="domain",
-        entity_id=domain_id,
-        details={"name": domain.name},
-        request=request,
-    )
-    return {"message": "Domain deleted"}
+    return admin_service.delete_domain(domain_id, admin.id, db, request)
 
+
+# ── Questions ──────────────────────────────────────────────────────────────────
 
 @router.get("/domains/{domain_id}/questions")
 def get_questions(domain_id: str, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
-    questions = db.query(Question).filter(Question.domain_id == domain_id).all()
-    return [
-        {
-            "id": str(q.id),
-            "domain_id": str(q.domain_id),
-            "question_text": q.question_text,
-            "is_active": q.is_active,
-        }
-        for q in questions
-    ]
+    return admin_service.get_questions_for_domain(domain_id, db)
 
 
 class QuestionCreate(BaseModel):
@@ -245,27 +83,7 @@ class QuestionCreate(BaseModel):
 
 @router.post("/domains/{domain_id}/questions")
 def create_question(domain_id: str, request: Request, data: QuestionCreate, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
-    question = Question(
-        domain_id=domain_id,
-        question_text=data.question_text,
-    )
-    db.add(question)
-    db.commit()
-    db.refresh(question)
-    log_action(
-        db, admin.id,
-        action="create_question",
-        entity_type="question",
-        entity_id=str(question.id),
-        details={"domain_id": domain_id},
-        request=request,
-    )
-    return {
-        "id": str(question.id),
-        "domain_id": str(question.domain_id),
-        "question_text": question.question_text,
-        "is_active": question.is_active,
-    }
+    return admin_service.create_question(domain_id, data.question_text, admin.id, db, request)
 
 
 class QuestionUpdate(BaseModel):
@@ -275,50 +93,12 @@ class QuestionUpdate(BaseModel):
 
 @router.put("/questions/{question_id}")
 def update_question(question_id: str, request: Request, data: QuestionUpdate, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
-    question = db.query(Question).filter(Question.id == question_id).first()
-    if not question:
-        raise HTTPException(status_code=404, detail="Question not found")
-    changes = {}
-    if data.question_text is not None:
-        changes["question_text"] = {"old": question.question_text, "new": data.question_text}
-        question.question_text = data.question_text
-    if data.is_active is not None:
-        changes["is_active"] = {"old": question.is_active, "new": data.is_active}
-        question.is_active = data.is_active
-    db.commit()
-    log_action(
-        db, admin.id,
-        action="update_question",
-        entity_type="question",
-        entity_id=question_id,
-        details=changes,
-        request=request,
-    )
-    return {
-        "id": str(question.id),
-        "domain_id": str(question.domain_id),
-        "question_text": question.question_text,
-        "is_active": question.is_active,
-    }
+    return admin_service.update_question(question_id, data, admin.id, db, request)
 
 
 @router.delete("/questions/{question_id}")
 def delete_question(question_id: str, request: Request, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
-    question = db.query(Question).filter(Question.id == question_id).first()
-    if not question:
-        raise HTTPException(status_code=404, detail="Question not found")
-    domain_id = str(question.domain_id)
-    db.delete(question)
-    db.commit()
-    log_action(
-        db, admin.id,
-        action="delete_question",
-        entity_type="question",
-        entity_id=question_id,
-        details={"domain_id": domain_id},
-        request=request,
-    )
-    return {"message": "Question deleted"}
+    return admin_service.delete_question(question_id, admin.id, db, request)
 
 
 # ── Audit Log ──────────────────────────────────────────────────────────────────
@@ -334,44 +114,7 @@ def get_audit_log(
     admin=Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    query = db.query(AuditLog)
-    if user_id:
-        query = query.filter(AuditLog.user_id == user_id)
-    if action:
-        query = query.filter(AuditLog.action == action)
-    if date_from:
-        query = query.filter(AuditLog.created_at >= datetime.fromisoformat(date_from))
-    if date_to:
-        query = query.filter(AuditLog.created_at <= datetime.fromisoformat(date_to))
-
-    total = query.count()
-    logs = query.order_by(AuditLog.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
-
-    log_user_ids = [e.user_id for e in logs if e.user_id]
-    users_map = {u.id: u for u in db.query(User).filter(User.id.in_(log_user_ids)).all()} if log_user_ids else {}
-
-    items = []
-    for entry in logs:
-        user = users_map.get(entry.user_id) if entry.user_id else None
-        items.append({
-            "id": str(entry.id),
-            "user_id": str(entry.user_id) if entry.user_id else None,
-            "user_name": user.full_name if user else None,
-            "user_email": user.email if user else None,
-            "action": entry.action,
-            "entity_type": entry.entity_type,
-            "entity_id": entry.entity_id,
-            "details": entry.details,
-            "ip_address": entry.ip_address,
-            "created_at": entry.created_at.isoformat() if entry.created_at else None,
-        })
-
-    return {
-        "items": items,
-        "total": total,
-        "page": page,
-        "pages": max(1, (total + limit - 1) // limit),
-    }
+    return audit_service.get_audit_logs(db, page, limit, user_id, action, date_from, date_to)
 
 
 # ── Login History ──────────────────────────────────────────────────────────────
@@ -387,76 +130,19 @@ def get_login_history(
     admin=Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    query = db.query(LoginHistory)
-    if email:
-        query = query.filter(LoginHistory.email_attempted.ilike(f"%{email}%"))
-    if success is not None:
-        query = query.filter(LoginHistory.success == success)
-    if date_from:
-        query = query.filter(LoginHistory.created_at >= datetime.fromisoformat(date_from))
-    if date_to:
-        query = query.filter(LoginHistory.created_at <= datetime.fromisoformat(date_to))
-
-    total = query.count()
-    entries = query.order_by(LoginHistory.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
-
-    items = [
-        {
-            "id": str(e.id),
-            "user_id": str(e.user_id) if e.user_id else None,
-            "email_attempted": e.email_attempted,
-            "success": e.success,
-            "ip_address": e.ip_address,
-            "user_agent": e.user_agent,
-            "failure_reason": e.failure_reason,
-            "created_at": e.created_at.isoformat() if e.created_at else None,
-        }
-        for e in entries
-    ]
-
-    return {
-        "items": items,
-        "total": total,
-        "page": page,
-        "pages": max(1, (total + limit - 1) // limit),
-    }
+    return audit_service.get_login_history(db, page, limit, email, success, date_from, date_to)
 
 
 @router.get("/login-history/failed-attempts")
 def get_failed_attempts(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
-    since = datetime.utcnow() - timedelta(hours=24)
-    results = (
-        db.query(
-            LoginHistory.email_attempted,
-            func.count(LoginHistory.id).label("attempts"),
-            func.max(LoginHistory.created_at).label("last_attempt"),
-        )
-        .filter(LoginHistory.success == False, LoginHistory.created_at >= since)
-        .group_by(LoginHistory.email_attempted)
-        .order_by(func.count(LoginHistory.id).desc())
-        .limit(10)
-        .all()
-    )
-    return [
-        {
-            "email": r.email_attempted,
-            "attempts": r.attempts,
-            "last_attempt": r.last_attempt.isoformat() if r.last_attempt else None,
-        }
-        for r in results
-    ]
+    return audit_service.get_failed_login_attempts(db)
 
 
-# ── Knowledge Base Management ──────────────────────────────────────────────────
-
-ALLOWED_KB_EXTENSIONS = {"pdf"}
-MAX_KB_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
-
+# ── Knowledge Base ─────────────────────────────────────────────────────────────
 
 @router.get("/knowledge-base")
 def get_kb_files(admin=Depends(get_current_admin)):
-    """List all knowledge-base files registered in the manifest."""
-    return list_kb_files()
+    return kb_service.list_files()
 
 
 @router.post("/knowledge-base/upload")
@@ -468,85 +154,9 @@ async def upload_kb_file(
     admin=Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    """
-    Upload a PDF to the knowledge base.
-    - domain: e.g. 'Health', 'Transportation'
-    - country: ISO code e.g. 'JO'
-    The file is saved to disk and immediately indexed into Qdrant.
-    Uploading the same domain+country again replaces the previous file.
-    """
-    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
-    if ext not in ALLOWED_KB_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
-
-    content = await file.read()
-    if len(content) > MAX_KB_FILE_SIZE:
-        raise HTTPException(status_code=400, detail="File must not exceed 50 MB.")
-
-    domain = domain.strip()
-    country = country.strip().upper()
-    if not domain or not country:
-        raise HTTPException(status_code=400, detail="domain and country are required.")
-
-    valid_country = db.query(Domain).filter(Domain.country == country).first()
-    if not valid_country:
-        raise HTTPException(status_code=400, detail=f"Country code '{country}' does not match any existing domain. Add a domain for this country first.")
-
-    valid_domain = db.query(Domain).filter(Domain.country == country, Domain.name == domain).first()
-    if not valid_domain:
-        raise HTTPException(status_code=400, detail=f"Domain '{domain}' does not exist for country '{country}'.")
-
-    # Build a stable filename so re-uploading the same domain overwrites the old file
-    safe_domain = domain.lower().replace(" ", "_")
-    filename = f"{safe_domain}_{country.lower()}.pdf"
-    os.makedirs(_kb_path(), exist_ok=True)
-    file_path = os.path.join(_kb_path(), filename)
-
-    with open(file_path, "wb") as f:
-        f.write(content)
-
-    try:
-        entry = register_and_load(
-            file_path=file_path,
-            domain=domain,
-            country=country,
-            original_name=file.filename or filename,
-        )
-    except Exception as e:
-        # If indexing fails, remove the saved file to avoid orphaned files
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        raise HTTPException(status_code=500, detail=f"Failed to index PDF: {e}")
-
-    log_action(
-        db=db,
-        user_id=admin.id,
-        action="upload_kb_file",
-        entity_type="knowledge_base",
-        entity_id=entry["id"],
-        details={"domain": domain, "country": country, "chunks": entry["chunks"]},
-        request=request,
-    )
-    return entry
+    return await kb_service.upload_file(file, domain, country, admin.id, db, request)
 
 
 @router.delete("/knowledge-base/{entry_id}")
 def remove_kb_file(entry_id: str, request: Request, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
-    """
-    Delete a knowledge-base file by its entry ID (domain_country, e.g. 'health_JO').
-    Removes the PDF from disk and deletes all its vectors from Qdrant.
-    """
-    deleted = delete_kb_file(entry_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Knowledge-base entry not found.")
-
-    log_action(
-        db=db,
-        user_id=admin.id,
-        action="delete_kb_file",
-        entity_type="knowledge_base",
-        entity_id=entry_id,
-        details={"deleted_entry": entry_id},
-        request=request,
-    )
-    return {"message": f"Knowledge-base entry '{entry_id}' deleted successfully."}
+    return kb_service.delete_file(entry_id, admin.id, db, request)

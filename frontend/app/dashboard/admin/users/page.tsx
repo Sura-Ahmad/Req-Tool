@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import { getUsers, toggleUser } from '@/lib/api';
 
+type Toast = { type: 'success' | 'error'; message: string } | null;
+
 interface UserRow {
   id: string;
   full_name: string;
@@ -17,6 +19,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [toast, setToast] = useState<Toast>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -32,16 +35,25 @@ export default function UsersPage() {
     try {
       const res = await toggleUser(id);
       setUsers(prev => prev.map(u => u.id === id ? { ...u, is_active: res.data.is_active } : u));
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail ?? 'Failed to update user';
+      setToast({ type: 'error', message: msg });
+      setTimeout(() => setToast(null), 4000);
     } finally {
       setToggling(null);
     }
   };
 
   const fmt = (iso: string | null) =>
-    iso ? new Date(iso + 'Z').toLocaleDateString() : '—';
+    iso ? new Date(iso).toLocaleDateString() : '—';
 
   return (
     <>
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 px-5 py-3 rounded-xl shadow-lg text-white text-sm font-medium ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
+          {toast.message}
+        </div>
+      )}
       <h1 className="text-2xl font-bold mb-1" style={{ color: '#1E2A4A' }}>Users</h1>
       <p className="text-gray-500 mb-6">Manage registered users</p>
 

@@ -36,19 +36,10 @@ def log_login(
     request=None,
     failure_reason: Optional[str] = None,
 ):
-    ip_address = None
-    user_agent = None
-    if request:
-        if request.client:
-            ip_address = request.client.host
-        user_agent = request.headers.get("user-agent")
-
     entry = LoginHistory(
         user_id=user_id,
         email_attempted=email,
         success=success,
-        ip_address=ip_address,
-        user_agent=user_agent,
         failure_reason=failure_reason,
     )
     db.add(entry)

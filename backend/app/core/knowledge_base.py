@@ -5,7 +5,7 @@ import logging
 import pdfplumber
 from datetime import datetime
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
+from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue, PayloadSchemaType
 from app.core.config import settings
 from sentence_transformers import SentenceTransformer
 
@@ -82,15 +82,19 @@ def retrieve_context(domain: str, query: str, limit: int = 5) -> str:
 
 
 def ensure_collection():
-    existing = [c.name for c in _get_qdrant_client().get_collections().collections]
+    client = _get_qdrant_client()
+    existing = [c.name for c in client.get_collections().collections]
     if COLLECTION_NAME not in existing:
-        _get_qdrant_client().create_collection(
+        client.create_collection(
             collection_name=COLLECTION_NAME,
             vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
         )
-        print(f"Collection '{COLLECTION_NAME}' created.")
-    else:
-        print(f"Collection '{COLLECTION_NAME}' already exists.")
+    for field in ("domain", "country"):
+        client.create_payload_index(
+            collection_name=COLLECTION_NAME,
+            field_name=field,
+            field_schema=PayloadSchemaType.KEYWORD,
+        )
 
 def chunk_text(text: str, chunk_size: int = CHUNK_SIZE) -> list:
     words = text.split()
@@ -142,18 +146,15 @@ def load_pdf(file_path: str, domain: str, country: str = "JO") -> int:
 
 def _delete_from_qdrant(domain: str, country: str):
     """Remove all Qdrant points for a given domain + country."""
-    try:
-        _get_qdrant_client().delete(
-            collection_name=COLLECTION_NAME,
-            points_selector=Filter(
-                must=[
-                    FieldCondition(key="domain", match=MatchValue(value=domain)),
-                    FieldCondition(key="country", match=MatchValue(value=country)),
-                ]
-            ),
-        )
-    except Exception as e:
-        print(f"Warning: could not delete Qdrant points for {domain}/{country}: {e}")
+    _get_qdrant_client().delete(
+        collection_name=COLLECTION_NAME,
+        points_selector=Filter(
+            must=[
+                FieldCondition(key="domain", match=MatchValue(value=domain)),
+                FieldCondition(key="country", match=MatchValue(value=country)),
+            ]
+        ),
+    )
 
 
 # ── public API ─────────────────────────────────────────────────────────────────

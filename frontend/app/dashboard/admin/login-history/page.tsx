@@ -8,8 +8,6 @@ interface LoginEntry {
   user_id: string | null;
   email_attempted: string;
   success: boolean;
-  ip_address: string | null;
-  user_agent: string | null;
   failure_reason: string | null;
   created_at: string;
 }
@@ -159,7 +157,7 @@ export default function LoginHistoryPage() {
                         </span>
                       </td>
                       <td className="py-2 text-gray-500 text-xs">
-                        {new Date(a.last_attempt + 'Z').toLocaleString()}
+                        {new Date(a.last_attempt).toLocaleString()}
                       </td>
                     </tr>
                   ))}
@@ -242,8 +240,6 @@ export default function LoginHistoryPage() {
                   <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Timestamp</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Email</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Status</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">IP Address</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">User Agent</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Failure Reason</th>
                 </tr>
               </thead>
@@ -251,7 +247,7 @@ export default function LoginHistoryPage() {
                 {data.items.map(entry => (
                   <tr key={entry.id} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
-                      {new Date(entry.created_at + 'Z').toLocaleString()}
+                      {new Date(entry.created_at).toLocaleString()}
                     </td>
                     <td className="px-4 py-3 font-medium" style={{ color: '#1E2A4A' }}>
                       {entry.email_attempted}
@@ -268,10 +264,6 @@ export default function LoginHistoryPage() {
                           Failed
                         </span>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 font-mono text-xs">{entry.ip_address || '—'}</td>
-                    <td className="px-4 py-3 text-gray-400 text-xs max-w-xs truncate" title={entry.user_agent || ''}>
-                      {entry.user_agent || '—'}
                     </td>
                     <td className="px-4 py-3">
                       {entry.failure_reason ? (

@@ -31,6 +31,7 @@ interface Domain {
   country: string;
   is_active: boolean;
   created_at: string | null;
+  sessions_count: number;
 }
 
 interface Question {

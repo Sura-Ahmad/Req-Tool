@@ -1,62 +1,38 @@
-import logging
-import uuid
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from app.routers import auth, domain, upload, requirements, crosscheck, srs, usecases, admin, profile
 from app.core.config import settings
 from app.core.limiter import limiter
+from app.core.knowledge_base import ensure_collection
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-)
-logger = logging.getLogger("requirements_ai")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    ensure_collection()  # runs at startup
+    yield               # app runs here
 
-app = FastAPI(
-    title="Requirements AI",
-    version="1.0.0",
-    openapi_tags=[],
-)
 
-security = HTTPBearer(auto_error=False)
+app = FastAPI(title="Requirements AI", version="1.0.0", lifespan=lifespan)
 
+# Rate limiting (needed by auth, requirements, crosscheck, srs, usecases routes)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
-allowed_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+# Allow the frontend to talk to this backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=[o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-@app.exception_handler(Exception)
-async def unhandled_exception_handler(request: Request, exc: Exception):
-    if isinstance(exc, HTTPException):
-        raise exc
-    correlation_id = str(uuid.uuid4())
-    logger.error(
-        "Unhandled exception | correlation_id=%s | %s %s",
-        correlation_id,
-        request.method,
-        request.url,
-        exc_info=exc,
-    )
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error", "correlation_id": correlation_id},
-    )
-
-
+# Register all the routes
 app.include_router(auth.router)
 app.include_router(domain.router)
 app.include_router(upload.router)
@@ -66,23 +42,6 @@ app.include_router(srs.router)
 app.include_router(usecases.router)
 app.include_router(admin.router)
 app.include_router(profile.router)
-
-
-def custom_openapi():
-    if app.openapi_schema:
-        return app.openapi_schema
-    from fastapi.openapi.utils import get_openapi
-    schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
-    schema["components"]["securitySchemes"] = {
-        "BearerAuth": {"type": "http", "scheme": "bearer"}
-    }
-    for path in schema["paths"].values():
-        for operation in path.values():
-            operation["security"] = [{"BearerAuth": []}]
-    app.openapi_schema = schema
-    return schema
-
-app.openapi = custom_openapi
 
 
 @app.get("/")

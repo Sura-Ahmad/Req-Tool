@@ -199,7 +199,7 @@ export default function AuditLogPage() {
               <thead>
                 <tr style={{ background: '#F9FAFB' }}>
                   <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Timestamp</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">User</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Admin</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Action</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Entity Type</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Entity ID</th>
@@ -215,7 +215,7 @@ export default function AuditLogPage() {
                       onClick={() => setExpandedRow(expandedRow === entry.id ? null : entry.id)}
                     >
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                        {new Date(entry.created_at + 'Z').toLocaleString()}
+                        {new Date(entry.created_at).toLocaleString()}
                       </td>
                       <td className="px-4 py-3">
                         {entry.user_name ? (

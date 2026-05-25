@@ -174,7 +174,7 @@ function RequirementsPageInner() {
     generateAndDownloadUseCasesWord(useCases, projectName || 'My Project');
 
   const fmt = (iso: string | null) =>
-    iso ? new Date(iso + 'Z').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+    iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 
   const cardProps = {
     editingId, editText, editError, savingId, deletingId, confirmDeleteId, issues,

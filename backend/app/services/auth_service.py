@@ -1,12 +1,17 @@
 import hashlib
+import secrets
 from datetime import datetime, timedelta
-from fastapi import Header, Depends, HTTPException
+from fastapi import Header, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.core.database import get_db
-from app.core.security import create_access_token, create_refresh_token, verify_token
-from app.models.user import User, RefreshToken, UserRole
+from app.core.security import create_access_token, create_refresh_token, verify_token, hash_password, verify_password
+from app.models.user import User, RefreshToken, PasswordResetToken, UserRole
 from app.core.config import settings
+from app.core.email import send_reset_email
+from app.core.audit import log_login
+
+ALLOWED_EMAIL_DOMAINS = {"cit.just.edu.jo", "just.edu.jo", "outlook.com", "yahoo.com", "gmail.com"}
 
 
 def hash_token(token: str) -> str:
@@ -54,3 +59,102 @@ def get_current_admin(user: User = Depends(get_current_user)) -> User:
     if user.role != UserRole.admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
+
+
+# ── Auth flows ─────────────────────────────────────────────────────────────────
+
+def register_user(email: str, password: str, full_name: str, db: Session) -> tuple:
+    email_domain = email.split("@")[-1].lower()
+    if email_domain not in ALLOWED_EMAIL_DOMAINS:
+        raise HTTPException(status_code=400, detail="Registration is only allowed for authorized email domains")
+    validate_password_strength(password)
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    user = User(email=email, password_hash=hash_password(password), full_name=full_name)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    access_token, refresh_token = create_tokens(user.id)
+    store_refresh_token(user.id, refresh_token, db)
+    db.commit()
+    return access_token, refresh_token
+
+
+def login_user(email: str, password: str, db: Session, request) -> tuple:
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        log_login(db, email=email, success=False, request=request, failure_reason="user_not_found")
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not verify_password(password, user.password_hash):
+        log_login(db, email=email, success=False, user_id=user.id, request=request, failure_reason="wrong_password")
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not user.is_active:
+        log_login(db, email=email, success=False, user_id=user.id, request=request, failure_reason="account_disabled")
+        raise HTTPException(status_code=401, detail="Account is disabled")
+    log_login(db, email=email, success=True, user_id=user.id, request=request)
+    user.last_login = datetime.utcnow()
+    db.commit()
+    access_token, refresh_token = create_tokens(user.id)
+    store_refresh_token(user.id, refresh_token, db)
+    db.commit()
+    return access_token, refresh_token
+
+
+def logout_user(refresh_token: str, db: Session) -> None:
+    db_token = db.query(RefreshToken).filter(RefreshToken.token_hash == hash_token(refresh_token)).first()
+    if db_token:
+        db_token.is_revoked = True
+        db.commit()
+
+
+def initiate_password_reset(email: str, background_tasks: BackgroundTasks, db: Session) -> None:
+    user = db.query(User).filter(User.email == email).first()
+    if user and user.is_active:
+        db.query(PasswordResetToken).filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.is_used == False,
+        ).update({"is_used": True})
+        db.flush()
+        token = secrets.token_urlsafe(32)
+        db.add(PasswordResetToken(
+            user_id=user.id,
+            token_hash=hash_token(token),
+            expires_at=datetime.utcnow() + timedelta(hours=1),
+        ))
+        db.commit()
+        reset_link = f"{settings.FRONTEND_URL}/auth/reset-password?token={token}"
+        background_tasks.add_task(send_reset_email, user.email, user.full_name, reset_link)
+
+
+def complete_password_reset(token: str, new_password: str, db: Session) -> None:
+    validate_password_strength(new_password)
+    reset_token = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token_hash == hash_token(token),
+        PasswordResetToken.is_used == False,
+        PasswordResetToken.expires_at > datetime.utcnow(),
+    ).first()
+    if not reset_token:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link. Please request a new one.")
+    user = db.query(User).filter(User.id == reset_token.user_id).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+    user.password_hash = hash_password(new_password)
+    reset_token.is_used = True
+    db.commit()
+
+
+def refresh_tokens(refresh_token: str, db: Session) -> tuple:
+    payload = verify_token(refresh_token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+    db_token = db.query(RefreshToken).filter(
+        RefreshToken.token_hash == hash_token(refresh_token),
+        RefreshToken.is_revoked == False,
+    ).first()
+    if not db_token:
+        raise HTTPException(status_code=401, detail="Token revoked or not found")
+    db_token.is_revoked = True
+    new_access_token, new_refresh_token = create_tokens(db_token.user_id)
+    store_refresh_token(db_token.user_id, new_refresh_token, db)
+    db.commit()
+    return new_access_token, new_refresh_token

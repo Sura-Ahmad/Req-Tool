@@ -33,10 +33,10 @@ export default function HistoryPage() {
   }, []);
 
   const fmt = (iso: string | null) =>
-    iso ? new Date(iso + 'Z').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+    iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 
   const fmtTime = (iso: string | null) =>
-    iso ? new Date(iso + 'Z').toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '';
+    iso ? new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '';
 
   return (
     <div className="p-8">

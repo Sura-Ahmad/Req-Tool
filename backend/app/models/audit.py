@@ -34,8 +34,6 @@ class LoginHistory(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     email_attempted = Column(String(255), nullable=False)
     success = Column(Boolean, nullable=False)
-    ip_address = Column(String(45), nullable=True)
-    user_agent = Column(String(500), nullable=True)
     failure_reason = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

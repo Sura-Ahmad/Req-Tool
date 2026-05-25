@@ -1,123 +1,32 @@
-﻿import logging
-from datetime import datetime
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.core.database import get_db
-from app.models.requirements import Requirement, RequirementHistory
-from app.models.domain import UserSession, Domain
-from app.services.requirement_service import get_questions_for_answers
 from app.schemas.requirements import (
-    GenerateRequirementsRequest, RequirementsResponse, RequirementItem,
+    GenerateRequirementsRequest, RequirementsResponse,
     ClassifiedRequirementsResponse, UpdateRequirementRequest, UpdateRequirementResponse,
 )
-from app.core.ai import generate_requirements
 from app.core.limiter import limiter
-import uuid
-import json
+from app.services import requirement_service
 
-logger = logging.getLogger("requirements_ai")
 router = APIRouter(prefix="/requirements", tags=["Requirements"])
 
 
 @router.post("/generate", response_model=RequirementsResponse)
 @limiter.limit("10/minute")
 def generate(request: Request, data: GenerateRequirementsRequest, db: Session = Depends(get_db)):
-    session = db.query(UserSession).filter(UserSession.id == data.session_id).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    domain = db.query(Domain).filter(Domain.id == session.domain_id).first()
-    if not domain:
-        raise HTTPException(status_code=404, detail="Domain not found")
-
-    raw_answers = json.loads(session.answers) if session.answers else []
-    questions_map = get_questions_for_answers(raw_answers, db)
-    answers = [
-        {"question": questions_map.get(a.get("question_id"), ""), "answer": a.get("answer", "")}
-        for a in raw_answers
-    ]
-
-    result = generate_requirements(
-        domain=domain.name,
-        role=session.role,
-        answers=answers,
-        document_text=data.document_text or "",
-        country=session.country or "Jordan",
-    )
-
-    if result.get("error"):
-        raise HTTPException(status_code=400, detail=result["error"])
-
-    db.query(Requirement).filter(Requirement.session_id == session.id).delete()
-    db.commit()
-
-    functional_items = []
-    non_functional_items = []
-
-    functional_data = result.get("functional", [])
-    non_functional_data = result.get("non_functional", [])
-
-    if not functional_data and not non_functional_data:
-        raw_text = result.get("raw", "")
-        for line in raw_text.split("\n"):
-            line = line.strip()
-            if line.startswith("**FR-"):
-                functional_data.append(line.replace("**", ""))
-            elif line.startswith("**NFR-"):
-                non_functional_data.append(line.replace("**", ""))
-
-    for req in functional_data:
-        parts = req.split(":", 1)
-        if len(parts) == 2:
-            req_obj = Requirement(
-                session_id=session.id,
-                code=parts[0].strip(),
-                description=parts[1].strip(),
-                type="functional",
-            )
-            db.add(req_obj)
-            db.flush()
-            functional_items.append(RequirementItem(
-                id=req_obj.id, code=parts[0].strip(), description=parts[1].strip(), type="functional",
-            ))
-
-    for req in non_functional_data:
-        parts = req.split(":", 1)
-        if len(parts) == 2:
-            req_obj = Requirement(
-                session_id=session.id,
-                code=parts[0].strip(),
-                description=parts[1].strip(),
-                type="non_functional",
-            )
-            db.add(req_obj)
-            db.flush()
-            non_functional_items.append(RequirementItem(
-                id=req_obj.id, code=parts[0].strip(), description=parts[1].strip(), type="non_functional",
-            ))
-
-    db.commit()
-
-    return RequirementsResponse(
-        session_id=session.id,
-        functional=functional_items,
-        non_functional=non_functional_items,
-        total=len(functional_items) + len(non_functional_items),
-    )
+    return requirement_service.generate_requirements(str(data.session_id), data.document_text, db)
 
 
 @router.get("/{session_id}/classified", response_model=ClassifiedRequirementsResponse)
-def get_classified_requirements(session_id: str, db: Session = Depends(get_db)):
-    requirements = db.query(Requirement).filter(Requirement.session_id == session_id).all()
+def get_classified_requirements(session_id: UUID, db: Session = Depends(get_db)):
+    requirements = requirement_service.get_requirements_for_session(str(session_id), db)
     if not requirements:
         raise HTTPException(status_code=404, detail="No requirements found for this session")
-    functional = [RequirementItem(id=r.id, code=r.code, description=r.description, type=r.type)
-                  for r in requirements if r.type == "functional"]
-    non_functional = [RequirementItem(id=r.id, code=r.code, description=r.description, type=r.type)
-                      for r in requirements if r.type == "non_functional"]
+    functional, non_functional = requirement_service.split_by_type(requirements)
     return ClassifiedRequirementsResponse(
-        session_id=uuid.UUID(session_id),
+        session_id=session_id,
         functional=functional,
         non_functional=non_functional,
         functional_count=len(functional),
@@ -127,14 +36,11 @@ def get_classified_requirements(session_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{session_id}", response_model=RequirementsResponse)
-def get_requirements(session_id: str, db: Session = Depends(get_db)):
-    requirements = db.query(Requirement).filter(Requirement.session_id == session_id).all()
-    functional = [RequirementItem(id=r.id, code=r.code, description=r.description, type=r.type)
-                  for r in requirements if r.type == "functional"]
-    non_functional = [RequirementItem(id=r.id, code=r.code, description=r.description, type=r.type)
-                      for r in requirements if r.type == "non_functional"]
+def get_requirements(session_id: UUID, db: Session = Depends(get_db)):
+    requirements = requirement_service.get_requirements_for_session(str(session_id), db)
+    functional, non_functional = requirement_service.split_by_type(requirements)
     return RequirementsResponse(
-        session_id=uuid.UUID(session_id),
+        session_id=session_id,
         functional=functional,
         non_functional=non_functional,
         total=len(functional) + len(non_functional),
@@ -143,32 +49,12 @@ def get_requirements(session_id: str, db: Session = Depends(get_db)):
 
 @router.put("/{requirement_id}", response_model=UpdateRequirementResponse)
 def update_requirement(requirement_id: str, data: UpdateRequirementRequest, db: Session = Depends(get_db)):
-    requirement = db.query(Requirement).filter(Requirement.id == requirement_id).first()
-    if not requirement:
-        raise HTTPException(status_code=404, detail="Requirement not found")
-
-    history = RequirementHistory(
-        requirement_id=requirement.id,
-        old_description=requirement.description,
-    )
-    db.add(history)
-
-    requirement.description = data.description
-    requirement.is_edited = True
-    requirement.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(requirement)
-    return requirement
+    return requirement_service.update_requirement(requirement_id, data.description, db)
 
 
 @router.delete("/{requirement_id}")
 def delete_requirement(requirement_id: str, db: Session = Depends(get_db)):
-    requirement = db.query(Requirement).filter(Requirement.id == requirement_id).first()
-    if not requirement:
-        raise HTTPException(status_code=404, detail="Requirement not found")
-    db.delete(requirement)
-    db.commit()
-    return {"message": "Deleted"}
+    return requirement_service.delete_requirement(requirement_id, db)
 
 
 class AddRequirementRequest(BaseModel):
@@ -179,32 +65,4 @@ class AddRequirementRequest(BaseModel):
 
 @router.post("/add")
 def add_requirement(data: AddRequirementRequest, db: Session = Depends(get_db)):
-    session = db.query(UserSession).filter(UserSession.id == data.session_id).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    if data.type not in ("functional", "non_functional"):
-        raise HTTPException(status_code=400, detail="type must be 'functional' or 'non_functional'")
-
-    prefix = "FR" if data.type == "functional" else "NFR"
-    existing = db.query(Requirement).filter(
-        Requirement.session_id == session.id,
-        Requirement.type == data.type,
-    ).all()
-    next_num = len(existing) + 1
-    code = f"{prefix}-{next_num}"
-    while db.query(Requirement).filter(
-        Requirement.session_id == session.id, Requirement.code == code
-    ).first():
-        next_num += 1
-        code = f"{prefix}-{next_num}"
-
-    req = Requirement(
-        session_id=session.id,
-        code=code,
-        description=data.description.strip(),
-        type=data.type,
-    )
-    db.add(req)
-    db.commit()
-    db.refresh(req)
-    return {"id": str(req.id), "code": req.code, "description": req.description, "type": req.type}
+    return requirement_service.add_requirement(data.session_id, data.type, data.description, db)

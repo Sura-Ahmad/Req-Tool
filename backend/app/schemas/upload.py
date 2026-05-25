@@ -3,7 +3,7 @@ from typing import Optional
 
 class TextInput(BaseModel):
     text: str
-    session_id: str
+    session_id: str = ""
 
 class ProcessedInput(BaseModel):
     original_length: int
