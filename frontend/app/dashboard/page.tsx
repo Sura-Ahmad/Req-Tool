@@ -37,12 +37,16 @@ export default function DashboardPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    getDomains(country).then(res => setDomains(res.data)).catch(() => {});
+    getDomains(country)
+      .then(res => setDomains(res.data))
+      .catch(() => setError('Failed to load domains. Please refresh the page.'));
   }, []);
 
   useEffect(() => {
     if (selectedDomain) {
-      getQuestions(selectedDomain.id).then(res => setQuestions(res.data)).catch(() => {});
+      getQuestions(selectedDomain.id)
+        .then(res => setQuestions(res.data))
+        .catch(() => setError('Failed to load questions. Please refresh the page.'));
     }
   }, [selectedDomain]);
 
@@ -87,7 +91,8 @@ export default function DashboardPage() {
       });
       const sessionId = sessionRes.data.id;
       localStorage.setItem('session_id', sessionId);
-      router.push(`/dashboard/requirements?session_id=${sessionId}&document_text=${encodeURIComponent(processedText)}`);
+      if (processedText) sessionStorage.setItem('pending_document_text', processedText);
+      router.push(`/dashboard/requirements?session_id=${sessionId}`);
     } catch (e) { setError('Error creating session'); }
     finally { setLoading(false); }
   };

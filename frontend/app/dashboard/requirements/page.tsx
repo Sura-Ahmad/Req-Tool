@@ -19,7 +19,9 @@ function RequirementsPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const sessionId = searchParams.get('session_id') || '';
-  const documentText = searchParams.get('document_text') || '';
+  const documentText = typeof window !== 'undefined'
+    ? (() => { const t = sessionStorage.getItem('pending_document_text') || ''; sessionStorage.removeItem('pending_document_text'); return t; })()
+    : '';
 
   const [tab, setTab] = useState(0);
   const [functional, setFunctional] = useState<any[]>([]);
@@ -114,7 +116,7 @@ function RequirementsPageInner() {
       setFunctional(prev => prev.filter(r => r.id !== id));
       setNonFunctional(prev => prev.filter(r => r.id !== id));
     } catch {
-      // silently ignore
+      setError('Failed to delete requirement. Please try again.');
     } finally {
       setDeletingId(null);
     }
@@ -143,27 +145,36 @@ function RequirementsPageInner() {
 
   const handleCrossCheck = async () => {
     setCrossChecking(true);
+    setError('');
     try {
       const res = await crossCheck(sessionId);
       setIssues(res.data.issues);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? 'Cross-check failed. Please try again.');
     } finally { setCrossChecking(false); }
   };
 
   const handleGenerateUseCases = async () => {
     setGeneratingUseCases(true);
+    setError('');
     try {
       const res = await generateUseCases(sessionId);
       setUseCases(res.data.use_cases);
       setTab(2);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? 'Failed to generate use cases.');
     } finally { setGeneratingUseCases(false); }
   };
 
   const handleGenerateSRS = async () => {
     setGeneratingSRS(true);
+    setError('');
     try {
       const res = await generateSRS(sessionId, projectName || 'My Project');
       setSrs(res.data.content);
       setTab(3);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? 'Failed to generate SRS.');
     } finally { setGeneratingSRS(false); }
   };
 

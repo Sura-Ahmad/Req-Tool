@@ -24,11 +24,12 @@ export default function HistoryPage() {
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     getMySessions()
       .then(res => setSessions(res.data))
-      .catch(() => setSessions([]))
+      .catch(() => setError('Failed to load sessions. Please refresh the page.'))
       .finally(() => setLoading(false));
   }, []);
 

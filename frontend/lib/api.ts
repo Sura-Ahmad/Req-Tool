@@ -57,6 +57,7 @@ api.interceptors.response.use(
     try {
       const res = await axios.post(`${API_URL}/auth/refresh`, { refresh_token: refreshToken });
       const { access_token, refresh_token: newRefresh } = res.data;
+      if (!access_token || !newRefresh) throw new Error('Invalid refresh response');
       localStorage.setItem('access_token', access_token);
       localStorage.setItem('refresh_token', newRefresh);
       api.defaults.headers.common.Authorization = `Bearer ${access_token}`;

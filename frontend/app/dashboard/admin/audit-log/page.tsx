@@ -85,7 +85,7 @@ export default function AuditLogPage() {
   });
 
   useEffect(() => {
-    getUsers().then(res => setUsers(res.data.filter((u: any) => u.role === 'admin'))).catch(() => {});
+    getUsers().then(res => setUsers(res.data.filter((u: any) => u.role === 'admin'))).catch(() => setUsers([]));
   }, []);
 
   useEffect(() => {
