@@ -67,7 +67,17 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\user\\\\OneDrive\\\\Desktop\\\\RequirementsSuperTool\\\\backend\" -Recurse -Directory)",
       "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\OneDrive\\\\Desktop\\\\RequirementsSuperTool\\\\frontend\" -Recurse -Directory | Select-Object -First 30 | ForEach-Object { $_.FullName })",
       "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\OneDrive\\\\Desktop\\\\RequirementsSuperTool\\\\frontend\\\\lib\" -Recurse | Where-Object { -not $_.PSIsContainer } | ForEach-Object { $_.FullName })",
-      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\OneDrive\\\\Desktop\\\\RequirementsSuperTool\\\\frontend\\\\components\" -Recurse | Where-Object { -not $_.PSIsContainer } | ForEach-Object { $_.FullName })"
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\OneDrive\\\\Desktop\\\\RequirementsSuperTool\\\\frontend\\\\components\" -Recurse | Where-Object { -not $_.PSIsContainer } | ForEach-Object { $_.FullName })",
+      "Bash(cd '/mnt/c/Users/user/OneDrive/Desktop/RequirementsSuperTool/frontend' && find . -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) ! -path \"*/node_modules/*\" | head -50)",
+      "Read(//mnt/c/Users/user/OneDrive/Desktop/RequirementsSuperTool/**)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\OneDrive\\\\Desktop\\\\RequirementsSuperTool\\\\backend\" -Recurse -Directory)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\OneDrive\\\\Desktop\\\\RequirementsSuperTool\\\\frontend\" -Recurse -File)",
+      "Bash(Select-Object -First 50)",
+      "Bash(Get-Content \"c:\\\\Users\\\\user\\\\OneDrive\\\\Desktop\\\\RequirementsSuperTool\\\\frontend\\\\lib\\\\api.ts\")",
+      "Bash(Get-Content \"c:\\\\Users\\\\user\\\\OneDrive\\\\Desktop\\\\RequirementsSuperTool\\\\frontend\\\\app\\\\dashboard\\\\history\\\\page.tsx\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\OneDrive\\\\Desktop\\\\RequirementsSuperTool\\\\backend\" -Recurse -Force)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\OneDrive\\\\Desktop\\\\RequirementsSuperTool\\\\frontend\" -Recurse -Force)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\OneDrive\\\\Desktop\\\\RequirementsSuperTool\\\\frontend\" -Recurse -Depth 2 | Where-Object { $_.PSIsContainer -eq $false -and $_.Extension -in @\\('.ts', '.tsx', '.js', '.jsx'\\) -and -not $_.FullName.Contains\\('node_modules'\\) } | Select-Object -First 30 FullName)"
     ]
   }
 }
