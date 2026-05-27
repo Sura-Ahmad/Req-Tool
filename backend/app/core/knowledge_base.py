@@ -47,7 +47,7 @@ def ensure_collection():
             collection_name=COLLECTION_NAME,
             vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
         )
-    for field in ("domain", "country"):
+    for field in ("domain", "country", "entry_id"):
         try:
             client.create_payload_index(
                 collection_name=COLLECTION_NAME,
@@ -82,7 +82,7 @@ def chunk_text(text: str, chunk_size: int = CHUNK_SIZE) -> list:
     ]
 
 
-def load_pdf(file_path: str, domain: str, country: str = "JO") -> int:
+def load_pdf(file_path: str, domain: str, country: str = "JO", entry_id: str = "") -> int:
     """Extract text from a PDF, embed it, and upsert into Qdrant. Returns chunk count."""
     text = ""
     with pdfplumber.open(file_path) as pdf:
@@ -91,8 +91,6 @@ def load_pdf(file_path: str, domain: str, country: str = "JO") -> int:
 
     if not text.strip():
         return 0
-
-    _delete_from_qdrant(domain, country)
 
     chunks = chunk_text(text)
     points = [
@@ -103,6 +101,7 @@ def load_pdf(file_path: str, domain: str, country: str = "JO") -> int:
                 "text": chunk,
                 "domain": domain,
                 "country": country,
+                "entry_id": entry_id,
                 "source": os.path.basename(file_path),
             },
         )
@@ -115,13 +114,12 @@ def load_pdf(file_path: str, domain: str, country: str = "JO") -> int:
     return len(points)
 
 
-def _delete_from_qdrant(domain: str, country: str):
+def _delete_from_qdrant(entry_id: str):
     _get_qdrant_client().delete(
         collection_name=COLLECTION_NAME,
         points_selector=Filter(
             must=[
-                FieldCondition(key="domain", match=MatchValue(value=domain)),
-                FieldCondition(key="country", match=MatchValue(value=country)),
+                FieldCondition(key="entry_id", match=MatchValue(value=entry_id)),
             ]
         ),
     )

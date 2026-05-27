@@ -1,5 +1,6 @@
 import os
 import json
+import uuid
 from datetime import datetime, timezone
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -32,19 +33,13 @@ def _write_manifest(manifest: dict):
         json.dump(manifest, f, indent=2, ensure_ascii=False)
 
 
-def _entry_id(domain: str, country: str) -> str:
-    """Stable ID from domain + country — uploading the same domain again overwrites it."""
-    return f"{domain.strip().lower().replace(' ', '_')}_{country.strip().upper()}"
-
-
 # ── Knowledge base CRUD ────────────────────────────────────────────────────────
 
-def register_and_load(file_path: str, domain: str, country: str, original_name: str) -> dict:
+def register_and_load(file_path: str, domain: str, country: str, original_name: str, entry_id: str) -> dict:
     """Save metadata to the manifest and load the PDF into Qdrant. Returns the manifest entry."""
     ensure_collection()
-    chunks = load_pdf(file_path, domain=domain, country=country)
+    chunks = load_pdf(file_path, domain=domain, country=country, entry_id=entry_id)
 
-    entry_id = _entry_id(domain, country)
     manifest = _read_manifest()
     entry = {
         "id": entry_id,
@@ -72,7 +67,7 @@ def delete_kb_file(entry_id: str) -> bool:
     if not entry:
         return False
 
-    _delete_from_qdrant(entry["domain"], entry["country"])
+    _delete_from_qdrant(entry_id)
 
     file_path = os.path.join(_kb_path(), entry["filename"])
     if os.path.exists(file_path):
@@ -106,9 +101,9 @@ def load_all():
                 domain = base.replace("_", " ").title()
                 country = "JO"
 
+            entry_id = str(uuid.uuid4())
             file_path = os.path.join(_kb_path(), filename)
-            chunks = load_pdf(file_path, domain=domain, country=country)
-            entry_id = _entry_id(domain, country)
+            chunks = load_pdf(file_path, domain=domain, country=country, entry_id=entry_id)
             manifest[entry_id] = {
                 "id": entry_id,
                 "filename": filename,
@@ -124,7 +119,8 @@ def load_all():
     for entry in manifest.values():
         file_path = os.path.join(_kb_path(), entry["filename"])
         if os.path.exists(file_path):
-            load_pdf(file_path, domain=entry["domain"], country=entry["country"])
+            _delete_from_qdrant(entry["id"])
+            load_pdf(file_path, domain=entry["domain"], country=entry["country"], entry_id=entry["id"])
         else:
             print(f"Warning: file '{entry['filename']}' listed in manifest but not found on disk.")
 
@@ -168,8 +164,8 @@ async def upload_file(
             detail=f"Domain '{domain}' does not exist for country '{country}'.",
         )
 
-    safe_domain = domain.lower().replace(" ", "_")
-    filename = f"{safe_domain}_{country.lower()}.pdf"
+    entry_id = str(uuid.uuid4())
+    filename = f"{entry_id}.pdf"
     os.makedirs(_kb_path(), exist_ok=True)
     file_path = os.path.join(_kb_path(), filename)
 
@@ -182,6 +178,7 @@ async def upload_file(
             domain=domain,
             country=country,
             original_name=file.filename or filename,
+            entry_id=entry_id,
         )
     except Exception as e:
         if os.path.exists(file_path):
