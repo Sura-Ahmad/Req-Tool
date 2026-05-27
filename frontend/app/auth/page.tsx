@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { login, register, forgotPassword } from '@/lib/api';
 
-type View = 'login' | 'register' | 'forgot';
+type View = 'login' | 'register' | 'forgot' | 'verify-pending';
 
 export default function AuthPage() {
   const router = useRouter();
@@ -52,10 +52,8 @@ export default function AuthPage() {
     if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
     setLoading(true); setError('');
     try {
-      const res = await register(fullName, email, password);
-      localStorage.setItem('access_token', res.data.access_token);
-      localStorage.setItem('refresh_token', res.data.refresh_token);
-      router.push('/dashboard');
+      await register(fullName, email, password);
+      setView('verify-pending');
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
       if (Array.isArray(detail)) {
@@ -97,8 +95,28 @@ export default function AuthPage() {
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-md overflow-hidden">
 
-        {/* Tabs — hidden on forgot-password view */}
-        {view !== 'forgot' && (
+        {/* Verify-pending screen */}
+        {view === 'verify-pending' && (
+          <div className="p-8 text-center">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: '#FFF0F0' }}>
+              <span style={{ fontSize: 32 }}>&#9993;</span>
+            </div>
+            <h2 className="text-xl font-bold mb-2" style={{ color: '#1E2A4A' }}>Check your inbox</h2>
+            <p className="text-sm text-gray-500 mb-1">A verification link has been sent to</p>
+            <p className="text-sm font-semibold text-gray-700 mb-4">{email}</p>
+            <p className="text-xs text-gray-400 mb-6">Click the link in the email to activate your account. It expires in 24 hours.</p>
+            <button
+              onClick={() => reset('login')}
+              className="w-full py-3 rounded-full font-semibold text-white transition-all hover:opacity-90"
+              style={{ background: '#1E2A4A' }}
+            >
+              Back to Login
+            </button>
+          </div>
+        )}
+
+        {/* Tabs — hidden on forgot-password and verify-pending views */}
+        {view !== 'forgot' && view !== 'verify-pending' && (
           <div className="flex">
             <button
               onClick={() => reset('login')}
@@ -122,7 +140,7 @@ export default function AuthPage() {
         )}
 
         {/* Forgot password header */}
-        {view === 'forgot' && (
+        {view !== 'verify-pending' && view === 'forgot' && (
           <div style={{ background: '#1E2A4A' }} className="px-8 py-5 flex items-center gap-3">
             <button
               onClick={() => reset('login')}
@@ -132,7 +150,7 @@ export default function AuthPage() {
           </div>
         )}
 
-        <div className="p-8">
+        {view !== 'verify-pending' && <div className="p-8">
           {error && (
             <div className="bg-red-50 text-red-500 text-sm px-4 py-3 rounded-xl mb-4">{error}</div>
           )}
@@ -240,7 +258,7 @@ export default function AuthPage() {
               Back to Login
             </button>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   );

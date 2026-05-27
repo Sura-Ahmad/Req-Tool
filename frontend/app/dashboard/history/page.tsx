@@ -59,7 +59,7 @@ export default function HistoryPage() {
         ) : sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-gray-400">
             <FileText size={40} className="mb-3 opacity-30" />
-            <p className="text-sm">No sessions yet — start by using the Wizard</p>
+            <p className="text-sm">No sessions yet — start by creating new Requirements</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3">

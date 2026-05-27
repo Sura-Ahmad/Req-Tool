@@ -6,9 +6,9 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from app.core.database import get_db
 from app.core.security import create_access_token, create_refresh_token, verify_token, hash_password, verify_password
-from app.models.user import User, RefreshToken, PasswordResetToken, UserRole
+from app.models.user import User, RefreshToken, PasswordResetToken, EmailVerificationToken, UserRole
 from app.core.config import settings
-from app.core.email import send_reset_email
+from app.core.email import send_reset_email, send_verification_email
 from app.services.audit_service import log_login
 
 ALLOWED_EMAIL_DOMAINS = {"cit.just.edu.jo", "just.edu.jo", "outlook.com", "yahoo.com", "gmail.com"}
@@ -66,7 +66,7 @@ def get_current_admin(user: User = Depends(get_current_user)) -> User:
 
 # ── Auth flows ─────────────────────────────────────────────────────────────────
 
-def register_user(email: str, password: str, full_name: str, db: Session) -> tuple:
+def register_user(email: str, password: str, full_name: str, background_tasks: BackgroundTasks, db: Session) -> None:
     email_domain = email.split("@")[-1].lower()
     if email_domain not in ALLOWED_EMAIL_DOMAINS:
         raise HTTPException(status_code=400, detail="Registration is only allowed for authorized email domains")
@@ -75,8 +75,32 @@ def register_user(email: str, password: str, full_name: str, db: Session) -> tup
         raise HTTPException(status_code=400, detail="Email already registered")
     user = User(email=email, password_hash=hash_password(password), full_name=full_name)
     db.add(user)
+    db.flush()
+    token = secrets.token_urlsafe(32)
+    db.add(EmailVerificationToken(
+        user_id=user.id,
+        token_hash=hash_token(token),
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+    ))
     db.commit()
-    db.refresh(user)
+    verify_link = f"{settings.FRONTEND_URL}/auth/verify-email?token={token}"
+    background_tasks.add_task(send_verification_email, user.email, user.full_name, verify_link)
+
+
+def verify_email_token(token: str, db: Session) -> tuple:
+    verification = db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.token_hash == hash_token(token),
+        EmailVerificationToken.is_used == False,
+        EmailVerificationToken.expires_at > datetime.now(timezone.utc),
+    ).first()
+    if not verification:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification link. Please register again.")
+    user = db.query(User).filter(User.id == verification.user_id).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+    user.is_verified = True
+    verification.is_used = True
+    db.flush()
     access_token, refresh_token = create_tokens(user.id)
     store_refresh_token(user.id, refresh_token, db)
     db.commit()
@@ -94,6 +118,9 @@ def login_user(email: str, password: str, db: Session, request) -> tuple:
     if not user.is_active:
         log_login(db, email=email, success=False, user_id=user.id, request=request, failure_reason="account_disabled")
         raise HTTPException(status_code=401, detail="Account is disabled")
+    if not user.is_verified:
+        log_login(db, email=email, success=False, user_id=user.id, request=request, failure_reason="email_not_verified")
+        raise HTTPException(status_code=403, detail="Please verify your email before logging in")
     log_login(db, email=email, success=True, user_id=user.id, request=request)
     user.last_login = datetime.now(timezone.utc)
     db.commit()

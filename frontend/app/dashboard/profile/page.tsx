@@ -54,6 +54,7 @@ export default function EditProfilePage() {
       const res = await updateProfile({ full_name: fullName.trim(), email: email.trim().toLowerCase() });
       setProfile(prev => prev ? { ...prev, full_name: res.data.full_name, email: res.data.email } : prev);
       setToast({ type: 'success', message: 'Profile updated successfully' });
+      window.dispatchEvent(new Event('profile-updated'));
     } catch (err: any) {
       const msg = err?.response?.data?.detail ?? 'Failed to update profile';
       setToast({ type: 'error', message: msg });

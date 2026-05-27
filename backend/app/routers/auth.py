@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, RefreshRequest, UserResponse, ForgotPasswordRequest, ResetPasswordRequest
 from app.services.auth_service import (
-    get_current_user, register_user, login_user, logout_user,
+    get_current_user, register_user, verify_email_token, login_user, logout_user,
     initiate_password_reset, complete_password_reset, refresh_tokens,
 )
 from app.core.limiter import limiter
@@ -11,10 +11,16 @@ from app.core.limiter import limiter
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/register", response_model=TokenResponse, status_code=201)
+@router.post("/register", status_code=201)
 @limiter.limit("5/minute")
-def register(request: Request, data: RegisterRequest, db: Session = Depends(get_db)):
-    access_token, refresh_token = register_user(data.email, data.password, data.full_name, db)
+def register(request: Request, data: RegisterRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    register_user(data.email, data.password, data.full_name, background_tasks, db)
+    return {"message": "Registration successful. Please check your email to verify your account."}
+
+
+@router.get("/verify-email", response_model=TokenResponse)
+def verify_email(token: str, db: Session = Depends(get_db)):
+    access_token, refresh_token = verify_email_token(token, db)
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 

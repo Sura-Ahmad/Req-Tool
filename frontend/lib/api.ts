@@ -83,6 +83,9 @@ export const login = (email: string, password: string) =>
 export const register = (full_name: string, email: string, password: string) =>
   api.post('/auth/register', { full_name, email, password });
 
+export const verifyEmail = (token: string) =>
+  api.get(`/auth/verify-email?token=${token}`);
+
 export const logout = (refresh_token: string) =>
   api.post('/auth/logout', { refresh_token });
 

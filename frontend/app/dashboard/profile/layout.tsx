@@ -38,6 +38,12 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
     getMyProfile().then(res => setProfile(res.data)).catch(() => {});
   }, [pathname]);
 
+  useEffect(() => {
+    const handler = () => getMyProfile().then(res => setProfile(res.data)).catch(() => {});
+    window.addEventListener('profile-updated', handler);
+    return () => window.removeEventListener('profile-updated', handler);
+  }, []);
+
   return (
     <div className="min-h-screen p-6 md:p-8" style={{ background: '#F8FAFC' }}>
       <div className="max-w-4xl mx-auto">

@@ -16,7 +16,7 @@ class AuditLog(Base):
     entity_id = Column(String(255), nullable=True)
     details = Column(JSON, nullable=True)
     ip_address = Column(String(45), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     user = relationship("User", back_populates="audit_logs")
 
@@ -35,7 +35,7 @@ class LoginHistory(Base):
     email_attempted = Column(String(255), nullable=False)
     success = Column(Boolean, nullable=False)
     failure_reason = Column(String(50), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     __table_args__ = (
         Index("ix_login_history_email", "email_attempted"),

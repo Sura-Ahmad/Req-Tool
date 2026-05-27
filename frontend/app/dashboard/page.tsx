@@ -54,11 +54,13 @@ export default function DashboardPage() {
     setError('');
     if (step === 0 && !selectedDomain) { setError('Please select a domain'); return; }
     if (step === 1 && !selectedRole) { setError('Please select a role'); return; }
-    if (step === 2) {
-      const unanswered = questions.filter(q => !answers[q.id]?.trim());
-      if (unanswered.length > 0) { setError('Please answer all questions'); return; }
-    }
     if (step === 3) {
+      const hasAnswers = questions.some(q => answers[q.id]?.trim());
+      const hasInput = (inputType === 'text' && inputText.trim()) || (inputType === 'file' && inputFile);
+      if (!hasAnswers && !hasInput) {
+        setError('Please either answer the questions or provide a document — at least one is required.');
+        return;
+      }
       try {
         setLoading(true);
         if (inputType === 'text' && inputText.trim()) {
@@ -66,11 +68,16 @@ export default function DashboardPage() {
           setProcessedText(res.data.processed_text);
           setPiiDetected(res.data.pii_detected ?? false);
         } else if (inputType === 'file' && inputFile) {
+          const name = inputFile.name.toLowerCase();
+          if (!name.endsWith('.pdf') && !name.endsWith('.docx')) {
+            setError('Only PDF and Word (.docx) documents are supported. Please upload a valid file.');
+            return;
+          }
           const res = await processDocument(inputFile);
           setProcessedText(res.data.processed_text);
           setPiiDetected(res.data.pii_detected ?? false);
         }
-      } catch { setError('Error processing input'); return; }
+      } catch { setError('Error processing input. Please check your file and try again.'); return; }
       finally { setLoading(false); }
     }
     if (step < 4) setStep(step + 1);
@@ -169,7 +176,7 @@ export default function DashboardPage() {
         {step === 2 && (
           <div>
             <h2 className="text-2xl font-bold mb-1" style={{ color: '#1E2A4A' }}>Questionnaire</h2>
-            <p className="text-gray-500 mb-6">Answer these questions to help us understand your needs</p>
+            <p className="text-gray-500 mb-6">Answer these questions to help us understand your needs. <span className="text-orange-400 font-medium">Optional</span> — you can skip and upload a document instead.</p>
             <div className="flex flex-col gap-6">
               {questions.map((q, i) => (
                 <div key={q.id}>
@@ -225,11 +232,6 @@ export default function DashboardPage() {
           <div>
             <h2 className="text-2xl font-bold mb-1" style={{ color: '#1E2A4A' }}>Review & Generate</h2>
             <p className="text-gray-500 mb-6">Review your selections before generating requirements</p>
-            {piiDetected && (
-              <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl mb-4 text-sm">
-                ⚠️ Personal data was detected in your input and has been automatically removed before processing.
-              </div>
-            )}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
               <h3 className="font-semibold text-gray-800 mb-4">Summary</h3>
               {[
@@ -253,7 +255,7 @@ export default function DashboardPage() {
 
       {/* Bottom Navigation */}
       <div className="bg-white border-t border-gray-100 px-8 py-4 flex justify-between items-center">
-        <button onClick={() => step > 0 ? setStep(step - 1) : null}
+        <button onClick={() => { if (step > 0) { setStep(step - 1); setError(''); } }}
           className="flex items-center gap-2 px-6 py-2 rounded-full border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-all"
           style={{ opacity: step === 0 ? 0.4 : 1 }}>
           <ChevronLeft size={16} /> Back

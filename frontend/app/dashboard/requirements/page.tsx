@@ -19,9 +19,12 @@ function RequirementsPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const sessionId = searchParams.get('session_id') || '';
-  const documentText = typeof window !== 'undefined'
-    ? (() => { const t = sessionStorage.getItem('pending_document_text') || ''; sessionStorage.removeItem('pending_document_text'); return t; })()
-    : '';
+  const [documentText] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    const t = sessionStorage.getItem('pending_document_text') || '';
+    if (t) sessionStorage.removeItem('pending_document_text');
+    return t;
+  });
 
   const [tab, setTab] = useState(0);
   const [functional, setFunctional] = useState<any[]>([]);
@@ -34,6 +37,7 @@ function RequirementsPageInner() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [issues, setIssues] = useState<any[]>([]);
+  const [crossCheckDone, setCrossCheckDone] = useState(false);
   const [crossChecking, setCrossChecking] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -146,9 +150,11 @@ function RequirementsPageInner() {
   const handleCrossCheck = async () => {
     setCrossChecking(true);
     setError('');
+    setCrossCheckDone(false);
     try {
       const res = await crossCheck(sessionId);
       setIssues(res.data.issues);
+      setCrossCheckDone(true);
     } catch (e: any) {
       setError(e?.response?.data?.detail ?? 'Cross-check failed. Please try again.');
     } finally { setCrossChecking(false); }
@@ -234,6 +240,17 @@ function RequirementsPageInner() {
           style={{ background: '#FF6B6B' }}>
           {crossChecking ? 'Checking...' : 'Run Cross-Check'}
         </button>
+
+        {crossCheckDone && issues.length === 0 && (
+          <div className="text-xs px-3 py-2 rounded-xl" style={{ background: '#4CAF5018', color: '#4CAF50' }}>
+            ✓ No issues found
+          </div>
+        )}
+        {crossCheckDone && issues.length > 0 && (
+          <div className="text-xs px-3 py-2 rounded-xl" style={{ background: '#FF6B6B18', color: '#FF6B6B' }}>
+            {issues.length} issue{issues.length > 1 ? 's' : ''} found — see highlighted requirements below
+          </div>
+        )}
 
         {issues.length > 0 && (
           <div className="text-xs">

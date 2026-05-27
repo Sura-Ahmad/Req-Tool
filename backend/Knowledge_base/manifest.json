@@ -1,1 +1,47 @@
-{}
+{
+  "5eb183fb-b085-4bb7-8ffd-77c1e2879e2b": {
+    "id": "5eb183fb-b085-4bb7-8ffd-77c1e2879e2b",
+    "filename": "5eb183fb-b085-4bb7-8ffd-77c1e2879e2b.pdf",
+    "domain": "Health",
+    "country": "JO",
+    "original_name": "TOR-_Comprehensive_health_sector_assessment_and_development_of_national_health_sector_digitalization_roadmap_for_Jordan.pdf",
+    "uploaded_at": "2026-05-27T10:53:07.895849+00:00",
+    "chunks": 6
+  },
+  "616240d1-51c2-4b80-b74d-94d1c9816fe9": {
+    "id": "616240d1-51c2-4b80-b74d-94d1c9816fe9",
+    "filename": "616240d1-51c2-4b80-b74d-94d1c9816fe9.pdf",
+    "domain": "Health",
+    "country": "JO",
+    "original_name": "electronic_transactions_law-eng.pdf",
+    "uploaded_at": "2026-05-27T10:53:25.637008+00:00",
+    "chunks": 8
+  },
+  "80f13b59-6987-4413-a726-ff54ca2bcd00": {
+    "id": "80f13b59-6987-4413-a726-ff54ca2bcd00",
+    "filename": "80f13b59-6987-4413-a726-ff54ca2bcd00.pdf",
+    "domain": "Health",
+    "country": "JO",
+    "original_name": "national-medicine-policy-eng.pdf",
+    "uploaded_at": "2026-05-27T10:53:45.268883+00:00",
+    "chunks": 18
+  },
+  "d765cb88-3c01-4106-9cb1-7379e76b4da2": {
+    "id": "d765cb88-3c01-4106-9cb1-7379e76b4da2",
+    "filename": "d765cb88-3c01-4106-9cb1-7379e76b4da2.pdf",
+    "domain": "Health",
+    "country": "JO",
+    "original_name": "Personal_Data_Protection_Law_Jordan_2023.pdf",
+    "uploaded_at": "2026-05-27T11:16:48.619229+00:00",
+    "chunks": 8
+  },
+  "994f0dab-c127-4a61-8d86-cb5d52cb8590": {
+    "id": "994f0dab-c127-4a61-8d86-cb5d52cb8590",
+    "filename": "994f0dab-c127-4a61-8d86-cb5d52cb8590.pdf",
+    "domain": "Health",
+    "country": "JO",
+    "original_name": "Hakeem_System_Requirements.pdf",
+    "uploaded_at": "2026-05-27T11:29:28.668946+00:00",
+    "chunks": 6
+  }
+}

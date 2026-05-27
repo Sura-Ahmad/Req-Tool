@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import date
 import anthropic
 from fastapi import HTTPException
 from app.core.config import settings
@@ -42,28 +43,31 @@ def generate_requirements(
     )
     role_instruction = _ROLE_INSTRUCTIONS.get(role, "Write clear and detailed requirements.")
 
-    validation_prompt = (
-        f'Does "{" ".join([a.get("answer", "") for a in answers])}" '
-        f"relate to the {domain} domain?\nAnswer with only YES or NO."
-    )
-    try:
-        validation = _get_client().messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=10,
-            messages=[{"role": "user", "content": validation_prompt}],
+    answers_content = " ".join([a.get("answer", "") for a in answers if a.get("answer", "").strip()])
+    validation_input = answers_content or document_text[:500]
+    if validation_input.strip():
+        validation_prompt = (
+            f'Does the following relate to the {domain} domain?\n'
+            f'"{validation_input}"\nAnswer with only YES or NO.'
         )
-        if "NO" in validation.content[0].text.upper():
-            return {
-                "functional": [],
-                "non_functional": [],
-                "raw": "",
-                "error": (
-                    f"The system you described doesn't match the {domain} domain. "
-                    f"Please choose a system related to {domain}."
-                ),
-            }
-    except Exception:
-        logger.exception("Claude validation call failed")
+        try:
+            validation = _get_client().messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=10,
+                messages=[{"role": "user", "content": validation_prompt}],
+            )
+            if "NO" in validation.content[0].text.upper():
+                return {
+                    "functional": [],
+                    "non_functional": [],
+                    "raw": "",
+                    "error": (
+                        f"The system you described doesn't match the {domain} domain. "
+                        f"Please choose a system related to {domain}."
+                    ),
+                }
+        except Exception:
+            logger.exception("Claude validation call failed")
 
     system_text = f"""You are a senior requirements engineer with 15+ years of experience in the {domain} domain in {country}.
 Your requirements are precise, testable, and complete — no vague language, no overlaps, no gaps.
@@ -194,7 +198,7 @@ Return ONLY a valid JSON array with this exact structure — no other text:
     try:
         message = _get_client().messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=4000,
+            max_tokens=8000,
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],
         )
@@ -216,12 +220,21 @@ def generate_srs(
     fr_text = "\n".join([f"{r.code}: {r.description}" for r in functional])
     nfr_text = "\n".join([f"{r.code}: {r.description}" for r in non_functional])
 
+    description_line = (
+        f"Description: {description}"
+        if description and str(description).strip() and str(description).strip().lower() not in ("none", "null", "")
+        else "Description: Derive the system description from the functional and non-functional requirements listed below."
+    )
+
+    today = date.today().strftime("%B %d, %Y")
+
     prompt = f"""Generate a complete IEEE 830 Software Requirements Specification (SRS) document for the following project:
 
 Project Name: {project_name}
 Domain: {domain_name}
 Country: {country}
-Description: {description}
+Date: {today}
+{description_line}
 
 Functional Requirements:
 {fr_text}
@@ -296,7 +309,7 @@ Return ONLY a valid JSON array. If no issues found, return []."""
     try:
         message = _get_client().messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=1000,
+            max_tokens=2000,
             messages=[{"role": "user", "content": prompt}],
         )
     except Exception:
