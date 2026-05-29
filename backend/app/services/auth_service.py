@@ -29,7 +29,7 @@ def store_refresh_token(user_id, refresh_token: str, db: Session) -> None:
     db.add(RefreshToken(
         user_id=user_id,
         token_hash=hash_token(refresh_token),
-        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
     ))
 
 
@@ -55,6 +55,8 @@ def get_current_user(authorization: Optional[str] = Header(None), db: Session = 
         raise HTTPException(status_code=401, detail="User not found")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is disabled")
+    if not user.is_verified:
+        raise HTTPException(status_code=403, detail="Email not verified")
     return user
 
 
@@ -80,7 +82,27 @@ def register_user(email: str, password: str, full_name: str, background_tasks: B
     db.add(EmailVerificationToken(
         user_id=user.id,
         token_hash=hash_token(token),
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+        expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=24),
+    ))
+    db.commit()
+    verify_link = f"{settings.FRONTEND_URL}/auth/verify-email?token={token}"
+    background_tasks.add_task(send_verification_email, user.email, user.full_name, verify_link)
+
+
+def resend_verification(email: str, background_tasks: BackgroundTasks, db: Session) -> None:
+    user = db.query(User).filter(User.email == email).first()
+    if not user or user.is_verified:
+        return  # Silent — don't reveal whether email is registered or already verified
+    db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.user_id == user.id,
+        EmailVerificationToken.is_used == False,
+    ).update({"is_used": True})
+    db.flush()
+    token = secrets.token_urlsafe(32)
+    db.add(EmailVerificationToken(
+        user_id=user.id,
+        token_hash=hash_token(token),
+        expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=24),
     ))
     db.commit()
     verify_link = f"{settings.FRONTEND_URL}/auth/verify-email?token={token}"
@@ -91,7 +113,7 @@ def verify_email_token(token: str, db: Session) -> tuple:
     verification = db.query(EmailVerificationToken).filter(
         EmailVerificationToken.token_hash == hash_token(token),
         EmailVerificationToken.is_used == False,
-        EmailVerificationToken.expires_at > datetime.now(timezone.utc),
+        EmailVerificationToken.expires_at > datetime.now(timezone.utc).replace(tzinfo=None),
     ).first()
     if not verification:
         raise HTTPException(status_code=400, detail="Invalid or expired verification link. Please register again.")
@@ -122,7 +144,7 @@ def login_user(email: str, password: str, db: Session, request) -> tuple:
         log_login(db, email=email, success=False, user_id=user.id, request=request, failure_reason="email_not_verified")
         raise HTTPException(status_code=403, detail="Please verify your email before logging in")
     log_login(db, email=email, success=True, user_id=user.id, request=request)
-    user.last_login = datetime.now(timezone.utc)
+    user.last_login = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
     access_token, refresh_token = create_tokens(user.id)
     store_refresh_token(user.id, refresh_token, db)
@@ -151,7 +173,7 @@ def initiate_password_reset(email: str, background_tasks: BackgroundTasks, db: S
         db.add(PasswordResetToken(
             user_id=user.id,
             token_hash=hash_token(token),
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1),
         ))
         db.commit()
         reset_link = f"{settings.FRONTEND_URL}/auth/reset-password?token={token}"
@@ -163,7 +185,7 @@ def complete_password_reset(token: str, new_password: str, db: Session) -> None:
     reset_token = db.query(PasswordResetToken).filter(
         PasswordResetToken.token_hash == hash_token(token),
         PasswordResetToken.is_used == False,
-        PasswordResetToken.expires_at > datetime.now(timezone.utc),
+        PasswordResetToken.expires_at > datetime.now(timezone.utc).replace(tzinfo=None),
     ).first()
     if not reset_token:
         raise HTTPException(status_code=400, detail="Invalid or expired reset link. Please request a new one.")

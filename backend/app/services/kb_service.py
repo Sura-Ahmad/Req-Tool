@@ -1,9 +1,12 @@
 import os
 import json
 import uuid
+import logging
 from datetime import datetime, timezone
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger("requirements_ai")
 from app.models.domain import Domain
 from app.core.knowledge_base import ensure_collection, load_pdf, _delete_from_qdrant, _kb_path
 from app.services.audit_service import log_action
@@ -23,8 +26,13 @@ def _read_manifest() -> dict:
     path = _manifest_path()
     if not os.path.exists(path):
         return {}
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except (json.JSONDecodeError, IOError) as e:
+        logger.error("manifest.json unreadable (%s) — returning empty manifest", e)
+        return {}
 
 
 def _write_manifest(manifest: dict):
@@ -122,7 +130,7 @@ def load_all():
             _delete_from_qdrant(entry["id"])
             load_pdf(file_path, domain=entry["domain"], country=entry["country"], entry_id=entry["id"])
         else:
-            print(f"Warning: file '{entry['filename']}' listed in manifest but not found on disk.")
+            logger.warning("File '%s' listed in manifest but not found on disk — skipping.", entry["filename"])
 
 
 # ── HTTP-level wrappers (called by routers) ────────────────────────────────────

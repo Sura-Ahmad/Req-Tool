@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { LayoutDashboard, Settings, LogOut, User, History } from 'lucide-react';
-import { getMe } from '@/lib/api';
+import { getMe, logout } from '@/lib/api';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -14,13 +14,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     getMe().then(res => {
       if (res.data.role === 'admin') setIsAdmin(true);
       setChecked(true);
-    }).catch(() => router.replace('/auth'));
+    }).catch(() => {
+      if (pathname.startsWith('/dashboard/admin')) {
+        setChecked(true);
+      } else {
+        router.replace('/auth');
+      }
+    });
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (refreshToken) {
+      try { await logout(refreshToken); } catch {}
+    }
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
-    router.push('/auth');
+    window.location.href = '/auth';
   };
 
   const navItems = [

@@ -19,6 +19,8 @@ def get_audit_logs(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
 ) -> dict:
+    page = max(1, page)
+    limit = max(1, min(limit, 100))
     query = db.query(AuditLog)
     if user_id:
         query = query.filter(AuditLog.user_id == user_id)
@@ -71,6 +73,8 @@ def get_login_history(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
 ) -> dict:
+    page = max(1, page)
+    limit = max(1, min(limit, 100))
     query = db.query(LoginHistory)
     if email:
         query = query.filter(LoginHistory.email_attempted.ilike(f"%{email}%"))

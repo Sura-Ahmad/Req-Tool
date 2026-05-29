@@ -202,8 +202,6 @@ export default function AuditLogPage() {
                   <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Admin</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Action</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Entity Type</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Entity ID</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">IP Address</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Details</th>
                 </tr>
               </thead>
@@ -236,10 +234,6 @@ export default function AuditLogPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-600 capitalize">{entry.entity_type}</td>
-                      <td className="px-4 py-3 text-gray-500 font-mono text-xs">
-                        {entry.entity_id ? entry.entity_id.slice(0, 8) + '…' : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-gray-500 font-mono text-xs">{entry.ip_address || '—'}</td>
                       <td className="px-4 py-3">
                         {entry.details && Object.keys(entry.details).length > 0 ? (
                           <span className="flex items-center gap-1 text-xs" style={{ color: '#FF6B6B' }}>
@@ -253,7 +247,7 @@ export default function AuditLogPage() {
                     </tr>
                     {expandedRow === entry.id && entry.details && Object.keys(entry.details).length > 0 && (
                       <tr key={`${entry.id}-detail`} className="border-t border-gray-50">
-                        <td colSpan={7} className="px-4 py-3" style={{ background: '#F9FAFB' }}>
+                        <td colSpan={5} className="px-4 py-3" style={{ background: '#F9FAFB' }}>
                           <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono bg-white rounded-xl p-3 border border-gray-100 overflow-auto max-h-48">
                             {JSON.stringify(entry.details, null, 2)}
                           </pre>

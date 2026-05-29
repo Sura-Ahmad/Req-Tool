@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Literal, Optional
 from uuid import UUID
 
 class GenerateRequirementsRequest(BaseModel):
@@ -40,7 +40,20 @@ class UpdateRequirementResponse(BaseModel):
         from_attributes = True
 
 
+class MessageResponse(BaseModel):
+    message: str
+
 class AddRequirementRequest(BaseModel):
     session_id: str
-    type: str
+    type: Literal["functional", "non_functional"]
     description: str
+
+class AddRequirementResponse(BaseModel):
+    id: UUID
+    code: str
+    description: str
+    type: str
+    is_edited: bool
+
+    class Config:
+        from_attributes = True

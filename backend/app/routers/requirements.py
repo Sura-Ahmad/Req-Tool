@@ -5,7 +5,7 @@ from app.core.database import get_db
 from app.schemas.requirements import (
     GenerateRequirementsRequest, RequirementsResponse,
     ClassifiedRequirementsResponse, UpdateRequirementRequest, UpdateRequirementResponse,
-    AddRequirementRequest,
+    AddRequirementRequest, AddRequirementResponse, MessageResponse,
 )
 from app.core.limiter import limiter
 from app.services import requirement_service
@@ -60,13 +60,13 @@ def update_requirement(request: Request, requirement_id: str, data: UpdateRequir
     return requirement_service.update_requirement(requirement_id, data.description, db, user_id=current_user.id)
 
 
-@router.delete("/{requirement_id}")
+@router.delete("/{requirement_id}", response_model=MessageResponse)
 @limiter.limit("30/minute")
 def delete_requirement(request: Request, requirement_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return requirement_service.delete_requirement(requirement_id, db, user_id=current_user.id)
 
 
-@router.post("/add")
+@router.post("/add", response_model=AddRequirementResponse)
 @limiter.limit("10/minute")
 def add_requirement(request: Request, data: AddRequirementRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return requirement_service.add_requirement(data.session_id, data.type, data.description, db, user_id=current_user.id)

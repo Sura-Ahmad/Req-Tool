@@ -16,7 +16,9 @@ class Requirement(Base):
     type = Column(String(20), nullable=False)
     is_edited = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at = Column(DateTime,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     session = relationship("UserSession", back_populates="requirements")
     history = relationship("RequirementHistory", back_populates="requirement")
@@ -26,7 +28,7 @@ class RequirementHistory(Base):
     __tablename__ = "requirement_history"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    requirement_id = Column(UUID(as_uuid=True), ForeignKey("requirements.id"), nullable=False, index=True)
+    requirement_id = Column(UUID(as_uuid=True), ForeignKey("requirements.id", ondelete="CASCADE"), nullable=False, index=True)
     old_description = Column(Text, nullable=False)
     changed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=False)
 

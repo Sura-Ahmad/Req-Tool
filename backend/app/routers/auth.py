@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, RefreshRequest, UserResponse, ForgotPasswordRequest, ResetPasswordRequest
 from app.services.auth_service import (
-    get_current_user, register_user, verify_email_token, login_user, logout_user,
-    initiate_password_reset, complete_password_reset, refresh_tokens,
+    get_current_user, register_user, resend_verification, verify_email_token,
+    login_user, logout_user, initiate_password_reset, complete_password_reset, refresh_tokens,
 )
 from app.core.limiter import limiter
 
@@ -16,6 +16,13 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 def register(request: Request, data: RegisterRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     register_user(data.email, data.password, data.full_name, background_tasks, db)
     return {"message": "Registration successful. Please check your email to verify your account."}
+
+
+@router.post("/resend-verification")
+@limiter.limit("3/minute")
+def resend_verification_email(request: Request, data: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    resend_verification(data.email, background_tasks, db)
+    return {"message": "If this email is registered and unverified, a new verification link has been sent."}
 
 
 @router.get("/verify-email", response_model=TokenResponse)

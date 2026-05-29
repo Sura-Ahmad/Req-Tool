@@ -21,6 +21,11 @@ def _get_qdrant_client() -> QdrantClient:
     global _qdrant_client
     if _qdrant_client is None:
         _qdrant_client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
+    try:
+        _qdrant_client.get_collections()
+    except Exception:
+        logger.warning("Qdrant connection lost — reconnecting")
+        _qdrant_client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
     return _qdrant_client
 
 

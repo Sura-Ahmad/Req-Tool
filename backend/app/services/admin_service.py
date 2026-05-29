@@ -27,7 +27,7 @@ def get_all_users_with_session_counts(db: Session) -> list:
         .group_by(UserSession.user_id)
         .all()
     )
-    users = db.query(User).all()
+    users = db.query(User).order_by(User.created_at.desc()).limit(500).all()
     return [
         {
             "id": str(user.id),
@@ -65,7 +65,7 @@ def toggle_user_active(user_id: str, admin_id, db: Session, request) -> dict:
 # ── Sessions ───────────────────────────────────────────────────────────────────
 
 def get_all_sessions_with_details(db: Session) -> list:
-    sessions = db.query(UserSession).all()
+    sessions = db.query(UserSession).order_by(UserSession.created_at.desc()).limit(500).all()
     user_ids = [s.user_id for s in sessions]
     domain_ids = [s.domain_id for s in sessions]
     session_ids = [s.id for s in sessions]
@@ -104,7 +104,7 @@ def get_all_domains_with_session_counts(db: Session) -> list:
         .group_by(UserSession.domain_id)
         .all()
     )
-    domains = db.query(Domain).all()
+    domains = db.query(Domain).order_by(Domain.created_at.desc()).limit(500).all()
     return [
         {
             "id": str(d.id),

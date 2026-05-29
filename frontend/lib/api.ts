@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || (
+  typeof window !== 'undefined'
+    ? (console.error('NEXT_PUBLIC_API_URL is not set — falling back to localhost'), 'http://localhost:8000')
+    : 'http://localhost:8000'
+);
 
 const api = axios.create({
   baseURL: API_URL,
@@ -85,6 +89,9 @@ export const register = (full_name: string, email: string, password: string) =>
 
 export const verifyEmail = (token: string) =>
   api.get(`/auth/verify-email?token=${token}`);
+
+export const resendVerification = (email: string) =>
+  api.post('/auth/resend-verification', { email });
 
 export const logout = (refresh_token: string) =>
   api.post('/auth/logout', { refresh_token });

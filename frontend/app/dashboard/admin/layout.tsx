@@ -19,13 +19,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
   const [checked, setChecked] = useState(false);
+  const [denied, setDenied] = useState(false);
 
   useEffect(() => {
     getMe().then(res => {
-      if (res.data.role !== 'admin') router.replace('/dashboard');
+      if (res.data.role !== 'admin') setDenied(true);
       else setChecked(true);
-    }).catch(() => router.replace('/auth'));
+    }).catch(() => setDenied(true));
   }, []);
+
+  if (denied) return (
+    <div className="fixed inset-0 flex flex-col items-center justify-center z-50" style={{ background: '#F8FAFC' }}>
+      <div className="text-center">
+        <p className="text-8xl font-bold mb-4" style={{ color: '#FF6B6B' }}>403</p>
+        <h1 className="text-2xl font-bold mb-2" style={{ color: '#1E2A4A' }}>Access Denied</h1>
+        <p className="text-gray-500 mb-8">You do not have permission to view this page.</p>
+        <button
+          onClick={() => router.replace('/auth')}
+          className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white"
+          style={{ background: '#1E2A4A' }}
+        >
+          Back to Login
+        </button>
+      </div>
+    </div>
+  );
 
   if (!checked) return null;
 

@@ -97,8 +97,7 @@ export default function DashboardPage() {
         answers: answersArray
       });
       const sessionId = sessionRes.data.id;
-      localStorage.setItem('session_id', sessionId);
-      if (processedText) sessionStorage.setItem('pending_document_text', processedText);
+      if (processedText) localStorage.setItem(`doc_${sessionId}`, processedText);
       router.push(`/dashboard/requirements?session_id=${sessionId}`);
     } catch (e) { setError('Error creating session'); }
     finally { setLoading(false); }
@@ -139,7 +138,7 @@ export default function DashboardPage() {
             </div>
             <label className="block text-sm font-medium text-gray-700 mb-3">Domain</label>
             <div className="grid grid-cols-3 gap-4">
-              {domains.map(d => (
+              {(domains ?? []).map(d => (
                 <button key={d.id} onClick={() => setSelectedDomain(d)}
                   className="flex flex-col items-center p-6 rounded-2xl border-2 transition-all"
                   style={{ borderColor: selectedDomain?.id === d.id ? '#FF6B6B' : '#E5E7EB', background: selectedDomain?.id === d.id ? '#FFF5F5' : 'white' }}>

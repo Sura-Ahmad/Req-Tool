@@ -52,7 +52,7 @@ def generate_requirements(
         )
         try:
             validation = _get_client().messages.create(
-                model="claude-sonnet-4-20250514",
+                model=settings.CLAUDE_MODEL,
                 max_tokens=10,
                 messages=[{"role": "user", "content": validation_prompt}],
             )
@@ -107,7 +107,7 @@ NFR-2: [requirement]"""
 
     try:
         message = _get_client().messages.create(
-            model="claude-sonnet-4-20250514",
+            model=settings.CLAUDE_MODEL,
             max_tokens=2000,
             system=[
                 {
@@ -152,8 +152,8 @@ def parse_json_response(text: str) -> list:
             clean = clean.split("```", 1)[1].split("```", 1)[0].strip()
         return json.loads(clean)
     except (json.JSONDecodeError, IndexError):
-        logger.warning("Could not parse JSON response: %s", text[:200])
-        return []
+        logger.error("Could not parse JSON response from AI: %s", text[:200])
+        raise HTTPException(status_code=502, detail="AI returned an unexpected response. Please try again.")
 
 
 def generate_use_cases(domain_name: str, country: str, requirements: list) -> list:
@@ -197,7 +197,7 @@ Return ONLY a valid JSON array with this exact structure — no other text:
 
     try:
         message = _get_client().messages.create(
-            model="claude-sonnet-4-20250514",
+            model=settings.CLAUDE_MODEL,
             max_tokens=8000,
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],
@@ -265,7 +265,7 @@ Use plain text only — do NOT use markdown formatting, asterisks, bold, italic,
 
     try:
         message = _get_client().messages.create(
-            model="claude-sonnet-4-20250514",
+            model=settings.CLAUDE_MODEL,
             max_tokens=4000,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -308,7 +308,7 @@ Return ONLY a valid JSON array. If no issues found, return []."""
 
     try:
         message = _get_client().messages.create(
-            model="claude-sonnet-4-20250514",
+            model=settings.CLAUDE_MODEL,
             max_tokens=2000,
             messages=[{"role": "user", "content": prompt}],
         )

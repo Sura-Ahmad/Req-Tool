@@ -21,7 +21,8 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_FROM: str = ""
     BREVO_API_KEY: str = ""
-    FRONTEND_URL: str = "http://localhost:3000"
+    FRONTEND_URL: str
+    CLAUDE_MODEL: str = "claude-sonnet-4-20250514"
     KNOWLEDGE_BASE_PATH: str = "Knowledge_base"
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
 

@@ -21,9 +21,8 @@ function RequirementsPageInner() {
   const sessionId = searchParams.get('session_id') || '';
   const [documentText] = useState<string>(() => {
     if (typeof window === 'undefined') return '';
-    const t = sessionStorage.getItem('pending_document_text') || '';
-    if (t) sessionStorage.removeItem('pending_document_text');
-    return t;
+    const sid = new URLSearchParams(window.location.search).get('session_id') || '';
+    return sid ? (localStorage.getItem(`doc_${sid}`) || '') : '';
   });
 
   const [tab, setTab] = useState(0);
@@ -77,6 +76,7 @@ function RequirementsPageInner() {
         setFunctional(res.data.functional);
         setNonFunctional(res.data.non_functional);
         setAlreadyGenerated(true);
+        localStorage.removeItem(`doc_${sessionId}`);
       }
     } catch (e: any) {
       setError(e.response?.data?.detail || 'Error loading requirements');

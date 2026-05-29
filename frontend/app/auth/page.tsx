@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { login, register, forgotPassword } from '@/lib/api';
+import { login, register, forgotPassword, resendVerification } from '@/lib/api';
 
 type View = 'login' | 'register' | 'forgot' | 'verify-pending';
 
@@ -14,6 +14,8 @@ export default function AuthPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showResend, setShowResend] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
 
   const reset = (next: View) => {
     setError('');
@@ -21,12 +23,25 @@ export default function AuthPage() {
     setEmail('');
     setPassword('');
     setFullName('');
+    setShowResend(false);
     setView(next);
+  };
+
+  const handleResend = async () => {
+    setResendLoading(true);
+    try {
+      await resendVerification(email);
+      setShowResend(false);
+      setError('');
+      setSuccess('A new verification link has been sent to your email.');
+    } catch {
+      setError('Failed to resend. Please try again.');
+    } finally { setResendLoading(false); }
   };
 
   const handleLogin = async () => {
     if (!email || !password) { setError('Please fill in all fields'); return; }
-    setLoading(true); setError('');
+    setLoading(true); setError(''); setShowResend(false);
     try {
       const res = await login(email, password);
       localStorage.setItem('access_token', res.data.access_token);
@@ -39,6 +54,9 @@ export default function AuthPage() {
         setError('Too many attempts. Please wait a minute and try again.');
       } else if (err?.response?.status === 422) {
         setError('Invalid email or password');
+      } else if (err?.response?.status === 403 && err?.response?.data?.detail === 'Email not verified') {
+        setError('Your email is not verified yet.');
+        setShowResend(true);
       } else if (typeof err?.response?.data?.detail === 'string') {
         setError(err.response.data.detail);
       } else {
@@ -152,7 +170,17 @@ export default function AuthPage() {
 
         {view !== 'verify-pending' && <div className="p-8">
           {error && (
-            <div className="bg-red-50 text-red-500 text-sm px-4 py-3 rounded-xl mb-4">{error}</div>
+            <div className="bg-red-50 text-red-500 text-sm px-4 py-3 rounded-xl mb-2">{error}</div>
+          )}
+          {showResend && (
+            <button
+              onClick={handleResend}
+              disabled={resendLoading}
+              className="w-full text-sm mb-4 py-2 rounded-xl font-medium transition-all disabled:opacity-50"
+              style={{ background: '#FFF0F0', color: '#FF6B6B' }}
+            >
+              {resendLoading ? 'Sending…' : 'Resend verification email'}
+            </button>
           )}
           {success && (
             <div className="bg-green-50 text-green-600 text-sm px-4 py-3 rounded-xl mb-4">{success}</div>

@@ -158,7 +158,7 @@ def add_requirement(session_id: str, req_type: str, description: str, db: Sessio
     db.add(req)
     db.commit()
     db.refresh(req)
-    return {"id": str(req.id), "code": req.code, "description": req.description, "type": req.type}
+    return req
 
 
 def update_requirement(requirement_id: str, description: str, db: Session, user_id=None):
