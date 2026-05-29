@@ -24,7 +24,7 @@ project_documentation.html
 project_documentation.pdf
 Project_Analysis_Report.pdf
 
-# Claude Code — AI development assistant artifacts
+# IDE artifacts
 .claude/
 
 # Knowledge base uploaded files (runtime data, not source code)
