@@ -24,7 +24,9 @@ project_documentation.html
 project_documentation.pdf
 Project_Analysis_Report.pdf
 
-# IDE artifacts
+# IDE and editor artifacts
+.vscode/
+.idea/
 .claude/
 
 # Knowledge base uploaded files (runtime data, not source code)
