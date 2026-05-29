@@ -24,6 +24,12 @@ project_documentation.html
 project_documentation.pdf
 Project_Analysis_Report.pdf
 
+# Claude Code — AI development assistant artifacts
+.claude/
+
+# Knowledge base uploaded files (runtime data, not source code)
+backend/Knowledge_base/
+
 # OS
 .DS_Store
 Thumbs.db
