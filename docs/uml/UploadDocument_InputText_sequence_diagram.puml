@@ -1,6 +1,6 @@
 @startuml UploadDocument_Sequence
 
-title "Upload Document — Implementation-Level Sequence Diagram\n<size:11>RequirementsSuperTool | FastAPI · Presidio PII · pdfplumber · python-docx · Next.js</size>"
+title "Upload Document — Sequence Diagram"
 
 actor       "User"                                                                          as U
 participant "Dashboard Page\n<size:10>app/dashboard/page.tsx\nStep 4 of 5</size>"          as FE
