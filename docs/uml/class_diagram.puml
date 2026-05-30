@@ -1,0 +1,121 @@
+@startuml RequirementsSuperTool
+
+
+class User {
+    +id : UUID <<PK>>
+    +email : String
+    +password_hash : String
+    +full_name : String
+    +role : Enum [user, admin]
+    +is_active : Boolean
+    +is_verified : Boolean
+    +created_at : DateTime
+    +last_login : DateTime
+}
+
+class RefreshToken {
+    +id : UUID <<PK>>
+    +user_id : UUID <<FK>>
+    +token_hash : String
+    +expires_at : DateTime
+    +is_revoked : Boolean
+}
+
+class PasswordResetToken {
+    +id : UUID <<PK>>
+    +user_id : UUID <<FK>>
+    +token_hash : String
+    +expires_at : DateTime
+    +is_used : Boolean
+    +created_at : DateTime
+}
+
+class EmailVerificationToken {
+    +id : UUID <<PK>>
+    +user_id : UUID <<FK>>
+    +token_hash : String
+    +expires_at : DateTime
+    +is_used : Boolean
+    +created_at : DateTime
+}
+
+class Domain {
+    +id : UUID <<PK>>
+    +name : String
+    +name_ar : String
+    +country : String
+    +is_active : Boolean
+    +created_at : DateTime
+}
+
+class Question {
+    +id : UUID <<PK>>
+    +domain_id : UUID <<FK>>
+    +question_text : Text
+    +is_active : Boolean
+}
+
+class UserSession {
+    +id : UUID <<PK>>
+    +user_id : UUID <<FK>>
+    +domain_id : UUID <<FK>>
+    +country : String
+    +role : String
+    +answers : JSONB
+    +document_text : Text
+    +created_at : DateTime
+}
+
+class Requirement {
+    +id : UUID <<PK>>
+    +session_id : UUID <<FK>>
+    +code : String
+    +description : Text
+    +type : String [functional, non_functional]
+    +is_edited : Boolean
+    +created_at : DateTime
+    +updated_at : DateTime
+}
+
+class RequirementHistory {
+    +id : UUID <<PK>>
+    +requirement_id : UUID <<FK>>
+    +old_description : Text
+    +changed_at : DateTime
+}
+
+class AuditLog {
+    +id : UUID <<PK>>
+    +user_id : UUID <<FK, nullable>>
+    +action : String
+    +entity_type : String
+    +entity_id : String
+    +details : JSON
+    +ip_address : String
+    +created_at : DateTime
+}
+
+class LoginHistory {
+    +id : UUID <<PK>>
+    +user_id : UUID <<FK, nullable>>
+    +email_attempted : String
+    +success : Boolean
+    +failure_reason : String
+    +created_at : DateTime
+}
+
+User "1" --> "0..*" RefreshToken : has
+User "1" --> "0..*" PasswordResetToken : has
+User "1" --> "0..*" EmailVerificationToken : has
+User "1" --> "0..*" UserSession : creates
+User "1" --> "0..*" AuditLog : logged in
+User "1" --> "0..*" LoginHistory : tracked in
+
+Domain "1" --> "0..*" Question : contains
+Domain "1" --> "0..*" UserSession : used in
+
+UserSession "1" --> "0..*" Requirement : generates
+
+Requirement "1" --> "0..*" RequirementHistory : tracks edits in
+
+@enduml
