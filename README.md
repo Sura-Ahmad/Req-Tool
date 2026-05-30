@@ -157,7 +157,7 @@ npm run dev
 ```bash
 # Copy and populate the backend environment file
 copy backend\.env.example backend\.env
-# Edit backend/.env with your credentials
+# Edit backend/.env with project credentials 
 
 # Build and start all services
 docker-compose up --build
