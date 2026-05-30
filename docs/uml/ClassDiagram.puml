@@ -6,11 +6,9 @@ skinparam packageStyle rectangle
 skinparam linetype ortho
 skinparam groupInheritance 2
 
-title "RequirementsSuperTool — Complete Class Diagram\n<size:11>FastAPI · SQLAlchemy · Pydantic · Anthropic · Qdrant · PostgreSQL</size>"
+title "RequirementsSuperTool — Class Diagram\n"
 
-' ══════════════════════════════════════════════════════
-' PACKAGE: MODELS (SQLAlchemy ORM)
-' ══════════════════════════════════════════════════════
+
 package "Models  (SQLAlchemy ORM)" as MODELS {
 
     enum UserRole {
@@ -141,7 +139,7 @@ package "Models  (SQLAlchemy ORM)" as MODELS {
         + changed_at : DateTime
     }
 
-    ' ── ORM Relationships ──────────────────────────────────────────
+    ' ORM Relationships
     User "1" *-down- "0..*" RefreshToken           : owns >
     User "1" *-down- "0..*" PasswordResetToken     : owns >
     User "1" *-down- "0..*" EmailVerificationToken : owns >
@@ -158,9 +156,7 @@ package "Models  (SQLAlchemy ORM)" as MODELS {
     UserSession -- ProjectRole
 }
 
-' ══════════════════════════════════════════════════════
-' PACKAGE: SCHEMAS (Pydantic)
-' ══════════════════════════════════════════════════════
+
 package "Schemas  (Pydantic)" as SCHEMAS {
 
     package "Auth" as SA {
@@ -346,9 +342,7 @@ package "Schemas  (Pydantic)" as SCHEMAS {
     }
 }
 
-' ══════════════════════════════════════════════════════
-' PACKAGE: CORE UTILITIES
-' ══════════════════════════════════════════════════════
+
 package "Core  Utilities" as CORE {
 
     class Settings <<singleton>> {
@@ -412,9 +406,7 @@ package "Core  Utilities" as CORE {
     }
 }
 
-' ══════════════════════════════════════════════════════
-' PACKAGE: SERVICES
-' ══════════════════════════════════════════════════════
+
 package "Services" as SERVICES {
 
     class AuthService <<service>> {
@@ -523,9 +515,7 @@ package "Services" as SERVICES {
     }
 }
 
-' ══════════════════════════════════════════════════════
-' SERVICE → MODEL DEPENDENCIES
-' ══════════════════════════════════════════════════════
+
 AuthService ..> User                      : uses
 AuthService ..> RefreshToken              : uses
 AuthService ..> PasswordResetToken        : uses
