@@ -8,7 +8,7 @@ from app.models.requirements import Requirement
 from app.services.audit_service import log_action
 
 
-# ── Stats ──────────────────────────────────────────────────────────────────────
+# Statistics
 
 def get_dashboard_stats(db: Session) -> dict:
     return {
@@ -19,7 +19,7 @@ def get_dashboard_stats(db: Session) -> dict:
     }
 
 
-# ── Users ──────────────────────────────────────────────────────────────────────
+# Users 
 
 def get_all_users_with_session_counts(db: Session) -> list:
     session_counts = dict(
@@ -62,7 +62,7 @@ def toggle_user_active(user_id: str, admin_id, db: Session, request) -> dict:
     return {"id": str(user.id), "is_active": user.is_active}
 
 
-# ── Sessions ───────────────────────────────────────────────────────────────────
+#  Sessions 
 
 def get_all_sessions_with_details(db: Session) -> list:
     sessions = db.query(UserSession).order_by(UserSession.created_at.desc()).limit(500).all()
@@ -96,7 +96,7 @@ def get_all_sessions_with_details(db: Session) -> list:
     return result
 
 
-# ── Domains ────────────────────────────────────────────────────────────────────
+# Domains 
 
 def get_all_domains_with_session_counts(db: Session) -> list:
     session_counts = dict(
@@ -199,7 +199,7 @@ def delete_domain(domain_id: str, admin_id, db: Session, request) -> dict:
     return {"message": "Domain deleted"}
 
 
-# ── Documents ──────────────────────────────────────────────────────────────────
+# Documents 
 
 def get_sessions_with_documents(db: Session) -> list:
     sessions = (
@@ -233,7 +233,7 @@ def get_document_text(session_id: str, db: Session) -> dict:
     return {"document_text": session.document_text, "session_id": session_id}
 
 
-# ── Questions ──────────────────────────────────────────────────────────────────
+# Questions 
 
 def get_questions_for_domain(domain_id: str, db: Session) -> list:
     questions = db.query(Question).filter(Question.domain_id == domain_id).all()
