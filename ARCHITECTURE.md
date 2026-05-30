@@ -1,6 +1,6 @@
 # System Architecture — Requirements Super Tool
 
-# Diagram 1 — Overall System Architecture (Client-Server + Layered + RAG)
+# Diagram 1 — Client-server architecture
 
 ```mermaid
 graph LR
@@ -117,7 +117,7 @@ sequenceDiagram
 
 
 
-# Diagram 3 — Full Layered Architecture (All Layers + All Files)
+# Diagram 3 —  Layered Architecture (All Layers + All Files)
 
 ```mermaid
 flowchart TB

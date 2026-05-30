@@ -92,7 +92,7 @@ export default function DomainsPage() {
     }
   };
 
-  // ── Domain CRUD ──────────────────────────────────────────────────────────────
+  //  Domain CRUD 
 
   const openAddDomain = () => {
     setDomainForm(emptyDomainForm);
@@ -153,7 +153,7 @@ export default function DomainsPage() {
     }
   };
 
-  // ── Question CRUD ────────────────────────────────────────────────────────────
+  // Question CRUD 
 
   const openAddQuestion = (domainId: string) => {
     setQuestionForm(emptyQuestionForm);

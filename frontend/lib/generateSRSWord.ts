@@ -6,7 +6,7 @@ import {
 } from 'docx';
 import { saveAs } from 'file-saver';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers 
 
 const PT = (pt: number) => pt * 2; // docx uses half-points
 
@@ -76,7 +76,7 @@ function emptyLine(): Paragraph {
   return new Paragraph({ spacing: { after: 120 } });
 }
 
-// ─── SRS Text Parser ──────────────────────────────────────────────────────────
+// SRS Text Parser 
 
 function parseSRSSections(srsText: string): Record<string, string> {
   const map: Record<string, string> = {};
@@ -119,7 +119,7 @@ function sectionParagraphs(map: Record<string, string>, key: string, noteFallbac
   return paragraphs.length ? paragraphs : [noteText(noteFallback)];
 }
 
-// ─── Cover-page info table ────────────────────────────────────────────────────
+// Cover-page info table 
 
 function infoTable(projectName: string): Table {
   const cellStyle = {
@@ -167,7 +167,7 @@ function infoTable(projectName: string): Table {
   });
 }
 
-// ─── Revision-history table ───────────────────────────────────────────────────
+// Revision-history table 
 
 function revisionTable(): Table {
   const headerCell = (text: string) =>
@@ -226,7 +226,7 @@ function revisionTable(): Table {
   });
 }
 
-// ─── Requirements table ───────────────────────────────────────────────────────
+//  Requirements table 
 
 function requirementsTable(reqs: { code: string; description: string }[]): Table {
   const headerCell = (text: string, pct: number) =>
@@ -280,7 +280,7 @@ function requirementsTable(reqs: { code: string; description: string }[]): Table
   });
 }
 
-// ─── Main export ──────────────────────────────────────────────────────────────
+//  Main export 
 
 export async function generateAndDownloadSRSWord(
   srsText: string,
@@ -323,9 +323,9 @@ export async function generateAndDownloadSRSWord(
           },
         },
         children: [
-          // ════════════════════════════════════════════════════════════════
+          
           // COVER PAGE
-          // ════════════════════════════════════════════════════════════════
+          
           new Paragraph({ spacing: { before: 1200 } }), // top padding
 
           new Paragraph({
@@ -351,9 +351,9 @@ export async function generateAndDownloadSRSWord(
           infoTable(projectName),
           pageBreak(),
 
-          // ════════════════════════════════════════════════════════════════
+          
           // REVISION HISTORY
-          // ════════════════════════════════════════════════════════════════
+          
           new Paragraph({
             alignment: AlignmentType.CENTER,
             spacing: { after: 240 },
@@ -362,9 +362,9 @@ export async function generateAndDownloadSRSWord(
           revisionTable(),
           pageBreak(),
 
-          // ════════════════════════════════════════════════════════════════
+          
           // TABLE OF CONTENTS
-          // ════════════════════════════════════════════════════════════════
+          
           new Paragraph({
             alignment: AlignmentType.CENTER,
             spacing: { after: 240 },
@@ -377,9 +377,9 @@ export async function generateAndDownloadSRSWord(
           noteText('When the document is opened in Microsoft Word, right-click the table of contents and select "Update Field" to generate the page numbers.'),
           pageBreak(),
 
-          // ════════════════════════════════════════════════════════════════
+          
           // 1. INTRODUCTION
-          // ════════════════════════════════════════════════════════════════
+          
           h1('1. Introduction'),
 
           h2('1.1 Purpose'),
@@ -397,9 +397,9 @@ export async function generateAndDownloadSRSWord(
           h2('1.5 Overview'),
           ...sectionParagraphs(S, '1.5', 'Describe what the rest of this SRS contains and how it is organized.'),
 
-          // ════════════════════════════════════════════════════════════════
+          
           // 2. OVERALL DESCRIPTION
-          // ════════════════════════════════════════════════════════════════
+          
           h1('2. Overall Description'),
 
           h2('2.1 Product Perspective'),
@@ -420,9 +420,9 @@ export async function generateAndDownloadSRSWord(
           h2('2.6 Assumptions and Dependencies'),
           noteText('List any assumed factors that could affect the requirements described in this SRS (e.g., availability of a specific operating system, external systems, third-party APIs). To be completed during detailed design.'),
 
-          // ════════════════════════════════════════════════════════════════
+          
           // 3. SPECIFIC REQUIREMENTS
-          // ════════════════════════════════════════════════════════════════
+          
           h1('3. Specific Requirements'),
 
           h2('3.1 Functional Requirements'),
@@ -441,9 +441,9 @@ export async function generateAndDownloadSRSWord(
             : noteText('No non-functional requirements generated yet.'),
           emptyLine(),
 
-          // ════════════════════════════════════════════════════════════════
+          
           // 4. EXTERNAL INTERFACE REQUIREMENTS
-          // ════════════════════════════════════════════════════════════════
+          
           h1('4. External Interface Requirements'),
           bodyPara('This section describes the inputs and outputs of the system. Details are to be defined during the design phase.'),
 
@@ -459,9 +459,9 @@ export async function generateAndDownloadSRSWord(
           h2('4.4 Communications Interfaces'),
           noteText('Describe the requirements associated with any communications functions required by this product, including e-mail, web browser, network communications protocols, and electronic forms.'),
 
-          // ════════════════════════════════════════════════════════════════
+          
           // 5. OTHER NON-FUNCTIONAL REQUIREMENTS
-          // ════════════════════════════════════════════════════════════════
+          
           h1('5. Other Non-Functional Requirements'),
           bodyPara('Additional quality attributes beyond those listed in Section 3.2:'),
 
@@ -477,9 +477,9 @@ export async function generateAndDownloadSRSWord(
           h2('5.4 Software Quality Attributes'),
           noteText('Specify additional software quality characteristics such as adaptability, availability, correctness, flexibility, interoperability, maintainability, portability, reliability, reusability, robustness, testability, and usability.'),
 
-          // ════════════════════════════════════════════════════════════════
+          
           // APPENDICES
-          // ════════════════════════════════════════════════════════════════
+         
           h1('Appendix A: Glossary'),
           noteText('Define all terms not defined in Section 1.3 that are required to properly interpret this SRS. This section should be completed as the project progresses and domain-specific terminology is identified.'),
 
@@ -497,7 +497,7 @@ export async function generateAndDownloadSRSWord(
   saveAs(blob, `SRS_${projectName.replace(/\s+/g, '_')}.docx`);
 }
 
-// ─── Use Cases Word Generator ─────────────────────────────────────────────────
+//  Use Cases Word Generator 
 
 interface UseCase {
   use_case_id?: string;
@@ -627,7 +627,7 @@ export async function generateAndDownloadUseCasesWord(
           },
         },
         children: [
-          // ── Cover Page ──────────────────────────────────────────────────
+          // Cover Page 
           new Paragraph({ spacing: { before: 1200 } }),
           new Paragraph({
             alignment: AlignmentType.CENTER,
@@ -693,7 +693,7 @@ export async function generateAndDownloadUseCasesWord(
           }),
           pageBreak(),
 
-          // ── Table of Contents ────────────────────────────────────────────
+          //  Table of Contents 
           new Paragraph({
             alignment: AlignmentType.CENTER,
             spacing: { after: 240 },
@@ -703,7 +703,7 @@ export async function generateAndDownloadUseCasesWord(
           noteText('Right-click the table of contents and select "Update Field" to generate page numbers.'),
           pageBreak(),
 
-          // ── Introduction ─────────────────────────────────────────────────
+          //  Introduction 
           h1('1. Introduction'),
           bodyPara('This document describes the use cases for the ' + projectName + ' system. Each use case represents a specific interaction between an actor and the system to achieve a goal.'),
           emptyLine(),
@@ -714,13 +714,13 @@ export async function generateAndDownloadUseCasesWord(
           h2('1.3 Actors'),
           noteText('List all actors (users or external systems) that interact with this system. To be refined during detailed design.'),
 
-          // ── Use Cases ─────────────────────────────────────────────────────
+          //  Use Cases 
           h1('2. Use Case Descriptions'),
           bodyPara('The following section details each use case with its actor, preconditions, main flow, and postconditions.'),
           emptyLine(),
           ...useCases.flatMap((uc, i) => useCaseTable(uc, i)),
 
-          // ── Summary Table ──────────────────────────────────────────────────
+          //  Summary Table 
           h1('3. Use Case Summary'),
           bodyPara('The following table provides a quick reference for all use cases in this document:'),
           emptyLine(),

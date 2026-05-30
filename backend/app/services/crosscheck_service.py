@@ -7,13 +7,7 @@ from app.core.knowledge_base import retrieve_context
 from app.services.ai_service import run_crosscheck
 from app.services.requirement_service import get_questions_for_answers
 
-COLOR_MAP = {
-    "ambiguity": "#FFA500",
-    "duplicate": "#FF6B6B",
-    "inconsistency": "#9B59B6",
-    "conflict": "#FF0000",
-    "unsupported": "#3498DB",
-}
+
 
 
 def run(session_id: str, db: Session, user_id=None) -> tuple:

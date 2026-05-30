@@ -36,7 +36,7 @@ export default function KnowledgeBasePage() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<Toast>(null);
 
-  // Upload form state
+  // Upload form 
   const [domain, setDomain] = useState('');
   const [country, setCountry] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

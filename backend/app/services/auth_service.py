@@ -66,7 +66,7 @@ def get_current_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
-# ── Auth flows ─────────────────────────────────────────────────────────────────
+#  Auth flows 
 
 def register_user(email: str, password: str, full_name: str, background_tasks: BackgroundTasks, db: Session) -> None:
     email_domain = email.split("@")[-1].lower()

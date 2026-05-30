@@ -44,7 +44,7 @@ app.add_middleware(
 )
 
 
-# Register all the routes
+# Register all routes
 app.include_router(auth.router)
 app.include_router(domain.router)
 app.include_router(upload.router)
