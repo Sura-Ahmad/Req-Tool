@@ -1,4 +1,3 @@
-"""Run from backend/ directory: python scripts/create_admin.py --email admin@example.com --name "Admin" --password <password>"""
 import sys, os, argparse
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
