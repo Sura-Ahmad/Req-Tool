@@ -109,6 +109,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed Mermaid diagrams of the syst
 ```bash
 cd backend
 
+#in the terminal (git clone https://github.com/Sura-Ahmad/Req-Tool.git)
 # Create and activate a virtual environment
 python -m venv venv
 venv\Scripts\activate 
