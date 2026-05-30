@@ -13,7 +13,7 @@ An AI-powered software requirements generation platform that helps product owner
 - **PII Protection** — Detects and removes personally identifiable information from uploaded content using Microsoft Presidio before any AI processing.
 - **Domain Knowledge Base** — Retrieves regulation-specific context from a Qdrant vector database (RAG pipeline) to ground generated requirements in real-world compliance needs.
 - **Requirement Refinement** — Users can edit, add, and delete individual requirements after generation; every edit is versioned in a history log.
-- **Document Export** — Generates formatted SRS and use case documents downloadable as DOCX or PDF.
+- **Document Export** — Generates formatted SRS and use case documents downloadable as DOCX.
 - **Role-Based Access** — Separate user and admin roles; admins can manage users, domains, and audit logs.
 - **Full Audit Trail** — All system actions and login attempts are logged for traceability.
 
