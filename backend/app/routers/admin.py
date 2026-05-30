@@ -10,14 +10,14 @@ from app.core.limiter import limiter
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
 
-# ── Stats ──────────────────────────────────────────────────────────────────────
+# Statistics
 
 @router.get("/stats")
 def get_stats(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
     return admin_service.get_dashboard_stats(db)
 
 
-# ── Users ──────────────────────────────────────────────────────────────────────
+# Users 
 
 @router.get("/users")
 def get_users(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
@@ -30,14 +30,14 @@ def toggle_user_active(user_id: str, request: Request, admin=Depends(get_current
     return admin_service.toggle_user_active(user_id, admin.id, db, request)
 
 
-# ── Sessions ───────────────────────────────────────────────────────────────────
+# Sessions 
 
 @router.get("/sessions")
 def get_sessions(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
     return admin_service.get_all_sessions_with_details(db)
 
 
-# ── Documents ──────────────────────────────────────────────────────────────────
+# Documents
 
 @router.get("/documents")
 def get_documents(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
@@ -49,7 +49,7 @@ def get_document(session_id: str, admin=Depends(get_current_admin), db: Session 
     return admin_service.get_document_text(session_id, db)
 
 
-# ── Domains ────────────────────────────────────────────────────────────────────
+# Domains 
 
 @router.get("/domains")
 def get_domains(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
@@ -87,7 +87,7 @@ def delete_domain(domain_id: str, request: Request, admin=Depends(get_current_ad
     return admin_service.delete_domain(domain_id, admin.id, db, request)
 
 
-# ── Questions ──────────────────────────────────────────────────────────────────
+# Questions 
 
 @router.get("/domains/{domain_id}/questions")
 def get_questions(domain_id: str, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
@@ -121,7 +121,7 @@ def delete_question(question_id: str, request: Request, admin=Depends(get_curren
     return admin_service.delete_question(question_id, admin.id, db, request)
 
 
-# ── Audit Log ──────────────────────────────────────────────────────────────────
+# Audit Log 
 
 @router.get("/audit-log")
 def get_audit_log(
@@ -137,7 +137,7 @@ def get_audit_log(
     return audit_service.get_audit_logs(db, page, limit, user_id, action, date_from, date_to)
 
 
-# ── Login History ──────────────────────────────────────────────────────────────
+# Login History 
 
 @router.get("/login-history")
 def get_login_history(
@@ -158,7 +158,7 @@ def get_failed_attempts(admin=Depends(get_current_admin), db: Session = Depends(
     return audit_service.get_failed_login_attempts(db)
 
 
-# ── Knowledge Base ─────────────────────────────────────────────────────────────
+# Knowledge Base 
 
 @router.get("/knowledge-base")
 def get_kb_files(admin=Depends(get_current_admin)):
