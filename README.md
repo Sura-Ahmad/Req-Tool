@@ -1,56 +1,136 @@
 # RequirementsSuperTool
 
-An AI-powered requirements generation platform. Users answer domain-specific questions and the system generates structured software requirements (functional, non-functional, use cases, and SRS documents) using Claude AI combined with a domain knowledge base stored in Qdrant.
+An AI-powered software requirements generation platform that helps product owners, business analysts, developers, and stakeholders produce structured, regulation-aware requirements documents. Users answer domain-specific questions, optionally upload a project document, and the system generates functional requirements (FR), non-functional requirements (NFR), use case documents, and full SRS reports using the Anthropic Claude API combined with a domain knowledge base stored in Qdrant.
 
-## Tech Stack
+**Live demo:** [req-tool-five.vercel.app](https://req-tool-five.vercel.app)
 
-| Layer | Technology |
+---
+
+# Key Features
+
+- **AI-Driven Generation** — Produces FR and NFR lists tailored to the selected domain, country regulations, user role, and project context.
+- **Document Upload** — Accepts PDF and DOCX files (up to 20 MB); extracts and processes text automatically.
+- **PII Protection** — Detects and removes personally identifiable information from uploaded content using Microsoft Presidio before any AI processing.
+- **Domain Knowledge Base** — Retrieves regulation-specific context from a Qdrant vector database (RAG pipeline) to ground generated requirements in real-world compliance needs.
+- **Requirement Refinement** — Users can edit, add, and delete individual requirements after generation; every edit is versioned in a history log.
+- **Document Export** — Generates formatted SRS and use case documents downloadable as DOCX or PDF.
+- **Role-Based Access** — Separate user and admin roles; admins can manage users, domains, and audit logs.
+- **Full Audit Trail** — All system actions and login attempts are logged for traceability.
+
+---
+
+# Architecture
+
+The system is organized into five layers:
+
+| Layer | Responsibility |
 |---|---|
-| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS |
-| Backend | FastAPI, Python, SQLAlchemy, PostgreSQL |
-| AI | Anthropic Claude API |
-| Vector DB | Qdrant Cloud |
+| **UI** | Next.js pages, Axios API client, document generator |
+| **Routers** | FastAPI HTTP endpoints (auth, domains, requirements, input, admin) |
+| **Services** | Business logic — auth, RAG pipeline, AI generation, file processing, auditing |
+| **Core** | Infrastructure — JWT, SQLAlchemy ORM, rate limiting, email, Qdrant client |
+| **Data** | PostgreSQL (relational data) + Qdrant (vector embeddings) |
 
-## Prerequisites
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed Mermaid diagrams of the system, RAG pipeline, and layered architecture.
+
+---
+
+# Technology Stack
+
+# Frameworks & Libraries
+
+| Technology | Purpose |
+|---|---|
+| Next.js + React | Frontend — SSR, routing, UI |
+| FastAPI | Backend — RESTful API |
+| SQLAlchemy | Python ORM for database interaction |
+| Pydantic | Data validation and schema management |
+| SlowAPI | Rate limiting middleware for FastAPI |
+
+# Databases & Storage
+
+| Technology | Purpose |
+|---|---|
+| PostgreSQL | Relational database — users, sessions, requirements, audit logs |
+| Qdrant | Vector database — semantic similarity search for the knowledge base |
+
+# AI & NLP
+
+| Technology | Purpose |
+|---|---|
+| Anthropic Claude API | LLM for requirements, SRS, and use case generation |
+| SentenceTransformers (`all-MiniLM-L6-v2`) | Embedding model for vector search |
+| Microsoft Presidio | PII detection and anonymization |
+
+# Document Processing
+
+| Technology | Purpose |
+|---|---|
+| pdfplumber | PDF text extraction |
+| python-docx | Microsoft Word document processing |
+
+# Security
+
+| Technology | Purpose |
+|---|---|
+| Passlib / bcrypt | Password hashing |
+| PyJWT | JSON Web Token authentication |
+
+# APIs & Integrations
+
+| Technology | Purpose |
+|---|---|
+| Swagger (OpenAPI) | Auto-generated API documentation |
+| Brevo | Transactional email delivery (verification, password reset) |
+
+# Languages & Tooling
+
+| Technology | Purpose |
+|---|---|
+| Python | Backend development |
+| TypeScript | Frontend logic with static typing |
+| Tailwind CSS | Utility-first styling |
+| Git / GitHub | Version control and repository management |
+| Pytest | Backend unit and integration testing |
+
+---
+
+# Local Development
+
+# Prerequisites
 
 - Python 3.12+
-- Node.js 20+
+- Node.js 18+
 - PostgreSQL 16
-- A [Qdrant Cloud](https://cloud.qdrant.io) cluster
-- An [Anthropic API key](https://console.anthropic.com)
+- A running Qdrant instance (cloud)
 
-## Local Development
-
-### 1. Backend
+# 1. Backend
 
 ```bash
 cd backend
 
-# Create and activate virtual environment
+# Create and activate a virtual environment
 python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS/Linux
+venv\Scripts\activate          # Windows
+
 
 # Install dependencies
 pip install -r requirements.txt
 python -m spacy download en_core_web_lg
 
-# Configure environment
+# Configure environment variables
 copy .env.example .env
-# Edit .env with your database URL, API keys, and SMTP credentials
+# .env file is not published as it contains sensitive data and instead i put .env example of what ot includes
 
-# Run database migrations
+# Apply database migrations
 alembic upgrade head
 
-# Seed initial data (optional)
-python -m app.seed
-
-# Start the server
+# Start the development server
 uvicorn app.main:app --reload --port 8000
 ```
 
-Backend runs at `http://localhost:8000`  
-API docs at `http://localhost:8000/docs`
+- API base URL: `http://localhost:8000`
+- Swagger docs: `http://localhost:8000/docs`
 
 ### 2. Frontend
 
@@ -61,50 +141,71 @@ cd frontend
 npm install
 
 # Configure environment
-# .env.local is already created — edit if your backend runs on a different port
+# in the .env.local file set:
 # NEXT_PUBLIC_API_URL=http://localhost:8000
 
-# Start the dev server
+# Start the development server
 npm run dev
 ```
 
-Frontend runs at `http://localhost:3000`
+- App URL: `http://localhost:3000`
 
-## Docker (All Services)
+---
+
+# Docker
 
 ```bash
-# Copy and fill in the backend environment file
+# Copy and populate the backend environment file
 copy backend\.env.example backend\.env
 # Edit backend/.env with your credentials
 
-# Build and start everything
+# Build and start all services
 docker-compose up --build
 ```
 
-After startup:
-- Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:8000`
-- Swagger docs: `http://localhost:8000/docs`
+| Service | URL |
+|---|---|
+| Frontend | `http://localhost:3000` |
+| Backend API | `http://localhost:8000` |
+| Swagger docs | `http://localhost:8000/docs` |
 
-Run database migrations inside Docker:
+Run database migrations inside the running container:
 
 ```bash
 docker-compose exec backend alembic upgrade head
 ```
 
-## Environment Variables
+---
 
-See [backend/.env.example](backend/.env.example) for all required variables and descriptions.
 
-Key variables:
+# Deployment
 
-| Variable | Description |
+| Service | Platform |
 |---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `SECRET_KEY` | JWT signing key (use a long random string) |
-| `ANTHROPIC_API_KEY` | Anthropic Claude API key |
-| `QDRANT_URL` | Qdrant cluster URL |
-| `QDRANT_API_KEY` | Qdrant API key |
-| `SMTP_USER` / `SMTP_PASSWORD` | Gmail SMTP credentials for email |
-| `FRONTEND_URL` | Frontend base URL (for email links) |
-| `CORS_ORIGINS` | Comma-separated list of allowed frontend origins |
+| Frontend | Vercel — [req-tool-five.vercel.app](https://req-tool-five.vercel.app) |
+| Backend API | Railway |
+
+---
+
+# UML Diagrams
+
+Diagram files are located in [`docs/uml/`](docs/uml/).
+
+| File | Type | How to View |
+|---|---|---|
+| `class_diagram.puml` | Class diagram | Open in VS Code → right-click → **Preview Diagram** (PlantUML extension required) |
+| `signup_Sequence.puml` | Sequence diagram | Same as above |
+| `sequence_diagram_upload documentOrInputText.puml` | Sequence diagram | Same as above |
+| `State_machine_diagram.puml` | State machine diagram | Same as above |
+
+Architecture diagrams in [`ARCHITECTURE.md`](ARCHITECTURE.md) use Mermaid syntax — paste any diagram block into [mermaid.live](https://mermaid.live) to render.
+
+---
+
+# Testing
+
+Run the backend test suite from the `backend` directory:
+
+```bash
+python -m pytest tests/test_auth.py -v
+```
