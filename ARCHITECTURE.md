@@ -1,8 +1,6 @@
-# System Architecture — Requirements Generation Tool
+# System Architecture — Requirements Super Tool
 
----
-
-## Diagram 1 — Overall System Architecture (Client-Server + Layered + RAG)
+# Diagram 1 — Overall System Architecture (Client-Server + Layered + RAG)
 
 ```mermaid
 graph LR
@@ -84,7 +82,7 @@ graph LR
 
 ---
 
-## Diagram 2 — RAG Flow (Retrieval-Augmented Generation)
+# Diagram 2 — RAG Flow (Retrieval-Augmented Generation)
 
 ```mermaid
 sequenceDiagram
@@ -119,7 +117,7 @@ sequenceDiagram
 
 
 
-## Diagram 3 — Full Layered Architecture (All Layers + All Files)
+# Diagram 3 — Full Layered Architecture (All Layers + All Files)
 
 ```mermaid
 flowchart TB
@@ -154,5 +152,4 @@ flowchart TB
     C -- index / retrieve --> VDB
 ```
 
----
 
