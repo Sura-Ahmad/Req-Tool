@@ -19,11 +19,6 @@ function RequirementsPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const sessionId = searchParams.get('session_id') || '';
-  const [documentText] = useState<string>(() => {
-    if (typeof window === 'undefined') return '';
-    const sid = new URLSearchParams(window.location.search).get('session_id') || '';
-    return sid ? (localStorage.getItem(`doc_${sid}`) || '') : '';
-  });
 
   const [tab, setTab] = useState(0);
   const [functional, setFunctional] = useState<any[]>([]);
@@ -72,7 +67,8 @@ function RequirementsPageInner() {
         setNonFunctional(nfn);
         setAlreadyGenerated(true);
       } else {
-        const res = await generateRequirements(sessionId, documentText);
+        const docText = typeof window !== 'undefined' ? (localStorage.getItem(`doc_${sessionId}`) || '') : '';
+        const res = await generateRequirements(sessionId, docText);
         setFunctional(res.data.functional);
         setNonFunctional(res.data.non_functional);
         setAlreadyGenerated(true);
