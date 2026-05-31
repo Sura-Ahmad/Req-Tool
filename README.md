@@ -109,9 +109,10 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed Mermaid diagrams of the syst
 ```bash
 cd backend
 
+#in the terminal (git clone https://github.com/Sura-Ahmad/Req-Tool.git)
 # Create and activate a virtual environment
 python -m venv venv
-venv\Scripts\activate          # Windows
+venv\Scripts\activate 
 
 
 # Install dependencies
@@ -120,7 +121,7 @@ python -m spacy download en_core_web_lg
 
 # Configure environment variables
 copy .env.example .env
-# .env file is not published as it contains sensitive data and instead i put .env example of what ot includes
+# .env file is not published as it contains sensitive data and instead i put .env example without real data.
 
 # Apply database migrations
 alembic upgrade head

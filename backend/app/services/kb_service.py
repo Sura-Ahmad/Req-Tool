@@ -16,7 +16,7 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 MANIFEST_FILENAME = "manifest.json"
 
 
-# Manifest helpers 
+# ── Manifest helpers ───────────────────────────────────────────────────────────
 
 def _manifest_path() -> str:
     return os.path.join(_kb_path(), MANIFEST_FILENAME)
@@ -41,7 +41,7 @@ def _write_manifest(manifest: dict):
         json.dump(manifest, f, indent=2, ensure_ascii=False)
 
 
-#  Knowledge base CRUD 
+# ── Knowledge base CRUD ────────────────────────────────────────────────────────
 
 def register_and_load(file_path: str, domain: str, country: str, original_name: str, entry_id: str) -> dict:
     """Save metadata to the manifest and load the PDF into Qdrant. Returns the manifest entry."""

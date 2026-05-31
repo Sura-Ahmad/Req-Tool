@@ -10,7 +10,7 @@ from app.core.limiter import limiter
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
 
-# Statistics 
+# ── Stats ──────────────────────────────────────────────────────────────────────
 
 @router.get("/stats")
 def get_stats(admin=Depends(get_current_admin), db: Session = Depends(get_db)):
@@ -87,7 +87,7 @@ def delete_domain(domain_id: str, request: Request, admin=Depends(get_current_ad
     return admin_service.delete_domain(domain_id, admin.id, db, request)
 
 
-# Questions
+# ── Questions ──────────────────────────────────────────────────────────────────
 
 @router.get("/domains/{domain_id}/questions")
 def get_questions(domain_id: str, admin=Depends(get_current_admin), db: Session = Depends(get_db)):
@@ -121,7 +121,7 @@ def delete_question(question_id: str, request: Request, admin=Depends(get_curren
     return admin_service.delete_question(question_id, admin.id, db, request)
 
 
-# Audit Log
+# ── Audit Log ──────────────────────────────────────────────────────────────────
 
 @router.get("/audit-log")
 def get_audit_log(
