@@ -2,6 +2,8 @@
 
 An AI-powered software requirements generation platform that helps product owners, business analysts, developers, and stakeholders produce structured, regulation-aware requirements documents. Users answer domain-specific questions, optionally upload a project document, and the system generates functional requirements (FR), non-functional requirements (NFR), use case documents, and full SRS reports using the Anthropic Claude API combined with a domain knowledge base stored in Qdrant.
 
+# The knowledge base for the healthcare sector is currently ready. For the remaining sectors, I am still collecting relevant documents.
+
 **Live demo:** [req-tool-five.vercel.app](https://req-tool-five.vercel.app)
 
 ---
