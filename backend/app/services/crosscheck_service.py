@@ -32,7 +32,7 @@ def run(session_id: str, db: Session, user_id=None) -> tuple:
 
     raw_answers = session.answers or []
     questions_map = get_questions_for_answers(raw_answers, db)
-    answers_text = build_answers_text(raw_answers, questions_map)
+    answers_text = build_answers_text(raw_answers, questions_map, session.document_text)
 
     requirements = db.query(Requirement).filter(Requirement.session_id == session_id).all()
     if not requirements:
@@ -45,11 +45,14 @@ def run(session_id: str, db: Session, user_id=None) -> tuple:
     return map_issues(issues_data, requirements)
 
 
-def build_answers_text(raw_answers: list, questions_map: dict) -> str:
+def build_answers_text(raw_answers: list, questions_map: dict, document_text: str = "") -> str:
     text = "\n".join([
         f"Q: {questions_map.get(a.get('question_id'), 'Unknown question')} A: {a.get('answer', '')}"
         for a in raw_answers
     ])
+    if document_text and document_text.strip():
+        doc_section = f"User provided document:\n{document_text.strip()}"
+        return f"{text}\n\n{doc_section}".strip() if text else doc_section
     return text or "No user answers provided"
 
 
