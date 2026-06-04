@@ -1,4 +1,4 @@
-# Environment files — never commit real credentials
+# Environment files 
 backend/.env
 frontend/.env.local
 frontend/.env*.local
@@ -19,17 +19,14 @@ frontend/node_modules/
 frontend/.next/
 frontend/out/
 
-# Generated docs (use generate_docs.py to recreate)
-project_documentation.html
-project_documentation.pdf
-Project_Analysis_Report.pdf
+
 
 # IDE and editor artifacts
 .vscode/
 .idea/
 .claude/
 
-# Knowledge base uploaded files (runtime data, not source code)
+# Knowledge_base uploaded files
 backend/Knowledge_base/
 
 # OS
