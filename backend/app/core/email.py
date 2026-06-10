@@ -110,7 +110,7 @@ def send_reset_email(to_email: str, full_name: str, reset_link: str) -> None:
 
     html_body = _HTML_TEMPLATE.format(full_name=full_name, reset_link=reset_link)
     payload = json.dumps({
-        "sender": {"name": "Requirements Super Tool", "email": settings.SMTP_FROM or "noreply@requirementstool.com"},
+        "sender": {"name": "Requirements Super Tool", "email": settings.SMTP_FROM},
         "to": [{"email": to_email}],
         "subject": "Reset Your Password — Requirements Super Tool",
         "htmlContent": html_body,
