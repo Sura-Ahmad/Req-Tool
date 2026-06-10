@@ -15,10 +15,10 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
-    SMTP_HOST: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
-    SMTP_USER: str = ""
-    SMTP_PASSWORD: str = ""
+    #SMTP_HOST: str = "smtp.gmail.com"
+    #SMTP_PORT: int = 587
+    #SMTP_USER: str = ""
+    #SMTP_PASSWORD: str = ""
     SMTP_FROM: str = ""
     BREVO_API_KEY: str = ""
     FRONTEND_URL: str
