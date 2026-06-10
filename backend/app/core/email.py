@@ -65,10 +65,9 @@ _VERIFY_HTML_TEMPLATE = """
 
 def send_verification_email(to_email: str, full_name: str, verify_link: str) -> None:
     if not settings.BREVO_API_KEY:
-        logger.warning(
-            "Brevo not configured — verification link for %s: %s",
-            to_email,
-            verify_link,
+        logger.warning
+        (
+            "Email not sent, Brevo key missing — verification link for %s: %s",to_email,verify_link,
         )
         return
 
