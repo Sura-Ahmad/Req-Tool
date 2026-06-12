@@ -13,6 +13,13 @@ const ROLES = [
   { id: 'stakeholder', label: 'Stakeholder', desc: 'Provide business perspective' },
 ];
 
+const COUNTRIES = [
+  { code: 'JO', label: 'Jordan',       flag: '🇯🇴' },
+  { code: 'SA', label: 'Saudi Arabia', flag: '🇸🇦' },
+  { code: 'EG', label: 'Egypt',        flag: '🇪🇬' },
+  { code: 'AE', label: 'UAE',          flag: '🇦🇪' },
+];
+
 const DOMAIN_ICONS: any = {
   Health: <Heart size={28} style={{ color: '#FF6B6B' }} />,
   Education: <GraduationCap size={28} style={{ color: '#6B8EFF' }} />,
@@ -22,7 +29,7 @@ const DOMAIN_ICONS: any = {
 export default function DashboardPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [country] = useState('JO');
+  const [country, setCountry] = useState('JO');
   const [domains, setDomains] = useState<any[]>([]);
   const [selectedDomain, setSelectedDomain] = useState<any>(null);
   const [selectedRole, setSelectedRole] = useState('');
@@ -34,19 +41,25 @@ export default function DashboardPage() {
   const [processedText, setProcessedText] = useState('');
   const [piiDetected, setPiiDetected] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingDomains, setLoadingDomains] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    setSelectedDomain(null);
+    setDomains([]);
+    setError('');
+    setLoadingDomains(true);
     getDomains(country)
       .then(res => setDomains(res.data))
-      .catch(() => setError('Failed to load domains. Please refresh the page.'));
-  }, []);
+      .catch(() => setError('Unable to load domains. Please check your connection and try again.'))
+      .finally(() => setLoadingDomains(false));
+  }, [country]);
 
   useEffect(() => {
     if (selectedDomain) {
       getQuestions(selectedDomain.id)
         .then(res => setQuestions(res.data))
-        .catch(() => setError('Failed to load questions. Please refresh the page.'));
+        .catch(() => setError('Domain is not ready yet. Please try again later.'));
     }
   }, [selectedDomain]);
 
@@ -134,7 +147,15 @@ export default function DashboardPage() {
             <p className="text-gray-500 mb-6">Choose your location and the domain for your project</p>
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
-              <div className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-700">🇯🇴 Jordan</div>
+              <select
+                value={country}
+                onChange={e => setCountry(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-700"
+              >
+                {COUNTRIES.map(c => (
+                  <option key={c.code} value={c.code}>{c.flag} {c.label}</option>
+                ))}
+              </select>
             </div>
             <label className="block text-sm font-medium text-gray-700 mb-3">Domain</label>
             <div className="grid grid-cols-3 gap-4">
@@ -150,6 +171,11 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
+            {!loadingDomains && domains.length === 0 && !error && (
+              <p className="text-gray-400 text-sm mt-4 text-center">
+                No domains are available for this country yet.
+              </p>
+            )}
           </div>
         )}
 
@@ -234,7 +260,7 @@ export default function DashboardPage() {
             <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
               <h3 className="font-semibold text-gray-800 mb-4">Summary</h3>
               {[
-                { label: 'Country', value: '🇯🇴 Jordan' },
+                { label: 'Country', value: `${COUNTRIES.find(c => c.code === country)?.flag} ${COUNTRIES.find(c => c.code === country)?.label}` },
                 { label: 'Domain', value: selectedDomain?.name },
                 { label: 'Role', value: ROLES.find(r => r.id === selectedRole)?.label },
                 { label: 'Questions Answered', value: `${Object.keys(answers).length} / ${questions.length}` },

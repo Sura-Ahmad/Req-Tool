@@ -58,7 +58,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               return (
                 <button
                   key={item.href}
-                  onClick={() => router.push(item.href)}
+                  onClick={() => {
+                    if (pathname === item.href) {
+                      window.location.href = item.href;
+                    } else {
+                      router.push(item.href);
+                    }
+                  }}
                   className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all"
                   style={{
                     background: active ? '#FF6B6B' : 'transparent',

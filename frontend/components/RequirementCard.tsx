@@ -78,7 +78,7 @@ export default function RequirementCard({
           {issue.issue_detail && (
             <p className="text-xs text-gray-600 mt-1"><span className="font-medium">Detail:</span> {issue.issue_detail}</p>
           )}
-          {issue.conflict_with && (
+          {issue.conflict_with && issue.conflict_with !== 'N/A' && (
             <p className="text-xs text-gray-500 mt-1"><span className="font-medium">Conflicts with:</span> {issue.conflict_with}</p>
           )}
         </div>

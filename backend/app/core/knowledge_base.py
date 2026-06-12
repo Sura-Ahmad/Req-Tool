@@ -63,13 +63,16 @@ def ensure_collection():
             pass
 
 
-def retrieve_context(domain: str, query: str, limit: int = 5) -> str:
+def retrieve_context(domain: str, query: str, limit: int = 5, country: str = "") -> str:
     try:
         embedding = text_to_embedding(query)
+        must_conditions = [{"key": "domain", "match": {"value": domain}}]
+        if country:
+            must_conditions.append({"key": "country", "match": {"value": country}})
         results = _get_qdrant_client().query_points(
             collection_name=COLLECTION_NAME,
             query=embedding,
-            query_filter={"must": [{"key": "domain", "match": {"value": domain}}]},
+            query_filter={"must": must_conditions},
             limit=limit,
         ).points
         return "\n\n".join([r.payload["text"] for r in results]) if results else ""

@@ -100,9 +100,9 @@ export default function KnowledgeBasePage() {
     try {
       await deleteKbFile(entry.id);
       setEntries(prev => prev.filter(e => e.id !== entry.id));
-      setToast({ type: 'success', message: 'Entry removed' });
+      setToast({ type: 'success', message: 'KB_File removed' });
     } catch {
-      setToast({ type: 'error', message: 'Failed to remove entry' });
+      setToast({ type: 'error', message: 'Failed to remove KB_File' });
     }
   };
 

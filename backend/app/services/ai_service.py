@@ -36,7 +36,7 @@ def generate_requirements(
 ) -> dict:
     if not knowledge_context:
         query = f"{domain} system requirements {' '.join([a.get('answer', '') for a in answers])}"
-        knowledge_context = retrieve_context(domain, query, limit=3)
+        knowledge_context = retrieve_context(domain, query, limit=3, country=country)
 
     answers_text = "\n".join(
         [f"Q: {a.get('question', '')} A: {a.get('answer', '')}" for a in answers]
@@ -77,7 +77,7 @@ Your requirements are precise, testable, and complete — no vague language, no 
 
 ## Requirements Quality Rules
 - Each requirement must be atomic (one requirement per line)
-- Use active voice: "The system shall..." or "The system must..."
+- Use active voice: "The system shall..." or "The system must...)"
 - Each requirement must be verifiable/testable
 - Avoid: "user-friendly", "fast", "easy" — be specific and measurable
 - Non-functional requirements must include measurable thresholds (e.g., response time < 2s, uptime ≥ 99.9%)
