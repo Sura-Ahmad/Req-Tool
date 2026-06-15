@@ -26,6 +26,7 @@ _ROLE_INSTRUCTIONS = {
 }
 
 
+# Requirements Generation 
 def generate_requirements(
     domain: str,
     role: str,
@@ -142,6 +143,7 @@ NFR-2: [requirement]"""
     return {"functional": functional, "non_functional": non_functional, "raw": response_text}
 
 
+# Shared Helper 
 def parse_json_response(text: str) -> list:
     """Parse a JSON array from a Claude response, stripping markdown code fences."""
     clean = text.strip()
@@ -156,6 +158,7 @@ def parse_json_response(text: str) -> list:
         raise HTTPException(status_code=502, detail="AI returned an unexpected response. Please try again.")
 
 
+#  Use Case Generation 
 def generate_use_cases(domain_name: str, country: str, requirements: list) -> list:
     """Build a use-case prompt, call Claude, return a list of use-case dicts."""
     fr_text = "\n".join([f"{r.code}: {r.description}" for r in requirements])
@@ -208,6 +211,7 @@ Return ONLY a valid JSON array with this exact structure — no other text:
     return parse_json_response(message.content[0].text)
 
 
+# SRS Generation 
 def generate_srs(
     project_name: str,
     description: str,
@@ -275,6 +279,7 @@ Use plain text only — do NOT use markdown formatting, asterisks, bold, italic,
     return message.content[0].text
 
 
+# Cross-check 
 def run_crosscheck(req_list: str, answers_text: str, kb_context: str) -> list:
     """Build a cross-check prompt, call Claude, return a list of issue dicts."""
     prompt = f"""You are a senior requirements engineer.
